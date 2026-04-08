@@ -49,9 +49,9 @@
 
         .glass { background: var(--bg-card); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); border: 1px solid var(--border-color); box-shadow: var(--glass-shadow); }
 
-        .btn { display: inline-flex; justify-content: center; align-items: center; width: 100%; font-family: var(--font-body); font-weight: 800; text-transform: uppercase; padding: 18px 20px; border: none; border-radius: var(--radius-sm); font-size: 1rem; cursor: pointer; transition: 0.2s; position: relative; overflow: hidden; letter-spacing: 1px; z-index: 2;}
+        .btn { display: inline-flex; justify-content: center; align-items: center; width: 100%; font-family: var(--font-body); font-weight: 800; text-transform: uppercase; padding: 18px 20px; border: none; border-radius: var(--radius-sm); font-size: 1rem; cursor: pointer; transition: 0.2s; position: relative; overflow: hidden; letter-spacing: 1px; z-index: 5;}
         .btn:active { transform: scale(0.96); }
-        .btn::after { content: ''; position: absolute; top: 0; left: -100%; width: 100%; height: 100%; background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent); transition: 0.5s; z-index: -1;}
+        .btn::after { content: ''; position: absolute; top: 0; left: -100%; width: 100%; height: 100%; background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent); transition: 0.5s; z-index: 6; pointer-events: none;}
         .btn:active::after { left: 100%; transition: 0s; }
         
         .btn-cyan { background: var(--secondary); color: #000; box-shadow: 0 5px 20px rgba(0, 229, 255, 0.3); }
@@ -299,15 +299,15 @@
     </div>
 
     <nav class="bottom-nav">
-        <div class="nav-item active" onclick="switchTab('tab-home')">
+        <div class="nav-item active" onclick="switchTab('tab-home', this)">
             <svg class="nav-icon"><path d="M12 2L2 12h3v8h14v-8h3L12 2z"></path></svg>
             Статус
         </div>
-        <div class="nav-item" onclick="switchTab('tab-store')">
+        <div class="nav-item" onclick="switchTab('tab-store', this)">
             <svg class="nav-icon"><polygon points="12 2 2 7 12 12 22 7 12 2"></polygon><polyline points="2 17 12 22 22 17"></polyline><polyline points="2 12 12 17 22 12"></polyline></svg>
             Арсенал
         </div>
-        <div class="nav-item" onclick="switchTab('tab-profile')">
+        <div class="nav-item" onclick="switchTab('tab-profile', this)">
             <svg class="nav-icon"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
             Профиль
         </div>
@@ -320,7 +320,8 @@
         const firebaseConfig = { apiKey: "AIzaSyAk8sJuPI1N4EL1hD3CisVRoEs4nmudvP0", authDomain: "damdymdb.firebaseapp.com", projectId: "damdymdb", storageBucket: "damdymdb.firebasestorage.app", messagingSenderId: "43924470905", appId: "1:43924470905:web:0310c5298da38d7f56a8a8" };
         const app = initializeApp(firebaseConfig); const db = getFirestore(app);
 
-        const vibrate = () => { if (navigator.vibrate) navigator.vibrate(50); };
+        // Безопасная функция вибрации
+        const vibrate = () => { try { if (navigator && navigator.vibrate) navigator.vibrate(50); } catch(e){} };
 
         window.startVoiceRecognition = function() {
             const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -359,12 +360,23 @@
             document.querySelector('.ambient-bg').style.display = newTheme === 'dark' ? 'block' : 'none';
         };
 
-        window.switchTab = function(tabId) {
+        // ИСПРАВЛЕННАЯ логика переключения вкладок (теперь не ломает скрипт)
+        window.switchTab = function(tabId, el = null) {
             vibrate();
             document.querySelectorAll('.tab-pane').forEach(t => t.classList.remove('active'));
             document.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active'));
-            document.getElementById(tabId).classList.add('active');
-            event.currentTarget.classList.add('active');
+            
+            const targetTab = document.getElementById(tabId);
+            if(targetTab) targetTab.classList.add('active');
+            
+            if (el) {
+                el.classList.add('active');
+            } else {
+                const navItems = document.querySelectorAll('.nav-item');
+                if(tabId === 'tab-home' && navItems[0]) navItems[0].classList.add('active');
+                if(tabId === 'tab-store' && navItems[1]) navItems[1].classList.add('active');
+                if(tabId === 'tab-profile' && navItems[2]) navItems[2].classList.add('active');
+            }
             window.scrollTo(0,0);
         };
 
@@ -470,6 +482,13 @@
         window.addFlavor = function(f) { vibrate(); const inp = document.getElementById('flavor-input'); inp.value = inp.value ? inp.value + ', ' + f : f; saveCurrentBowl(); };
         window.applyMagicMix = function() { vibrate(); document.getElementById('strength-slider').value = 4; updateSliderColor(4); document.getElementById('strength-display').innerText = strengthLabels[4]; document.getElementById('flavor-input').value = "Сладкие ягоды (без цитруса)"; setIce(false); saveCurrentBowl(); showToast("✨ Магия применена!"); };
 
+        function saveCurrentBowl() {
+            if(bowlsData.length > 0 && document.getElementById('strength-slider')) {
+                bowlsData[activeBowlIndex].strength = document.getElementById('strength-slider').value;
+                bowlsData[activeBowlIndex].flavor = document.getElementById('flavor-input').value;
+            }
+        }
+
         function updateSliderColor(val) {
             const slider = document.getElementById('strength-slider');
             const percent = (val / 10) * 100;
@@ -504,7 +523,12 @@
         window.addExtraBowl = function() { vibrate(); saveCurrentBowl(); bowlsData.push({ strength: 5, flavor: '', ice: true }); currentOrderFinalPrice += 2000; document.getElementById('modal-final-price').innerText = currentOrderFinalPrice.toLocaleString() + ' ₸'; selectBowl(bowlsData.length - 1); };
 
         window.openOrderModal = function(tariff, basePrice) {
-            vibrate(); if(!currentUserPhone) { switchTab('tab-profile'); return showToast("Для заказа нужно войти!"); }
+            vibrate(); 
+            if(!currentUserPhone) { 
+                switchTab('tab-profile'); 
+                showToast("⚠️ Для заказа нужно войти!");
+                return; 
+            }
             currentOrderTariff = tariff; currentOrderFinalPrice = Math.floor(basePrice - (basePrice * (userCurrentDiscount / 100)));
             let numBowls = tariff === 'DOUBLE' ? 2 : (tariff === 'TEAM' ? 4 : 1);
             bowlsData = Array.from({length: numBowls}, () => ({ strength: 5, flavor: '', ice: true }));
