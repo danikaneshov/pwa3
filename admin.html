@@ -180,7 +180,7 @@
 
         // --- БЕЗОПАСНОСТЬ (ХЭШИРОВАНИЕ) ---
         // Хэш пароля 'anesh123' (SHA-256). В коде больше нет самого пароля.
-        const ADMIN_HASH = "a7131792bc4613bb4eb7277cc2706db2fb80b3d5b28d05260f8dfeb3c2f1f0a5";
+        const ADMIN_HASH = "a665a45920422f9d417e4867efdc4fb8a04a1f3fff1fa07e998e86f7f7a27ae3";
 
         async function hashPassword(str) {
             const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(str));
