@@ -34,14 +34,20 @@
         * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
         body { font-family: var(--font-body); background-color: var(--bg-main); color: var(--text-main); display: flex; flex-direction: column; height: 100vh; overflow: hidden; transition: var(--transition); }
 
+        /* Splash Screen */
+        #splash-screen { position: fixed; inset: 0; background: var(--bg-main); z-index: 999999; display: flex; flex-direction: column; justify-content: center; align-items: center; transition: opacity 0.5s ease; }
+        .splash-logo { font-family: var(--font-vandal); font-size: 4rem; color: var(--text-main); animation: pulse 1.5s infinite; }
+        .splash-sub { font-weight: 800; text-transform: uppercase; letter-spacing: 2px; margin-top: 10px; color: var(--accent); }
+
         .glass { background: var(--bg-card); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); border: 1px solid var(--border-color); box-shadow: var(--glass-shadow); }
 
         .btn { display: inline-flex; justify-content: center; align-items: center; width: 100%; font-family: var(--font-body); font-weight: 800; text-transform: uppercase; padding: 18px 20px; border: none; border-radius: var(--radius-sm); font-size: 1rem; cursor: pointer; transition: 0.2s; position: relative; overflow: hidden;}
-        .btn:active { transform: scale(0.97); }
+        .btn:active { transform: scale(0.95); }
         .btn-cyan { background: var(--secondary); color: #000; }
         .btn-red { background: var(--accent); color: var(--accent-text); box-shadow: 0 4px 15px rgba(255, 51, 102, 0.4);}
         .btn-black { background: var(--text-main); color: var(--bg-main); }
         .btn-outline { background: transparent; color: var(--text-main); border: 2px solid var(--text-main); margin-top: 10px; }
+        .btn-magic { background: linear-gradient(45deg, #8a2be2, #ff3366); color: white; border: none; box-shadow: 0 4px 15px rgba(138, 43, 226, 0.4); margin-bottom: 15px; }
 
         header { padding: 20px 5vw; display: flex; justify-content: space-between; align-items: center; z-index: 10; padding-top: calc(20px + env(safe-area-inset-top)); }
         .logo { font-family: var(--font-vandal); font-size: 2.2rem; color: var(--text-main); letter-spacing: 1px; }
@@ -113,6 +119,11 @@
     </style>
 </head>
 <body data-theme="dark">
+
+    <div id="splash-screen">
+        <div class="splash-logo">VKASANIE</div>
+        <div class="splash-sub">Premium Hookah</div>
+    </div>
 
     <div id="toast-container"></div>
 
@@ -224,6 +235,8 @@
                 <span id="modal-final-price" style="font-weight: 900; font-size: 1.5rem; color: var(--accent);">0 ₸</span>
             </div>
             
+            <button class="btn btn-magic" onclick="applyMagicMix()">✨ ФИРМЕННЫЙ РЕЦЕПТ</button>
+
             <div class="bowl-tabs-container" id="bowl-tabs-container" style="display: none;"></div>
             <button class="btn btn-outline" id="btn-add-bowl" onclick="addExtraBowl()" style="padding: 10px; font-size: 0.8rem; margin-bottom: 20px; border-style: dashed;">+ ДОБАВИТЬ ЧАШУ (2 000 ₸)</button>
 
@@ -280,6 +293,9 @@
         const firebaseConfig = { apiKey: "AIzaSyAk8sJuPI1N4EL1hD3CisVRoEs4nmudvP0", authDomain: "damdymdb.firebaseapp.com", projectId: "damdymdb", storageBucket: "damdymdb.firebasestorage.app", messagingSenderId: "43924470905", appId: "1:43924470905:web:0310c5298da38d7f56a8a8" };
         const app = initializeApp(firebaseConfig); const db = getFirestore(app);
 
+        // Haptic Feedback wrapper
+        const vibrate = () => { if (navigator.vibrate) navigator.vibrate(50); };
+
         // UI 
         window.showToast = function(msg) {
             const t = document.createElement('div'); t.className = 'toast'; t.innerText = msg;
@@ -288,6 +304,7 @@
         };
 
         window.toggleTheme = function() {
+            vibrate();
             const body = document.body;
             const newTheme = body.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
             body.setAttribute('data-theme', newTheme);
@@ -296,6 +313,7 @@
         };
 
         window.switchTab = function(tabId) {
+            vibrate();
             document.querySelectorAll('.tab-pane').forEach(t => t.classList.remove('active'));
             document.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active'));
             document.getElementById(tabId).classList.add('active');
@@ -317,6 +335,7 @@
         ];
 
         window.login = async function() {
+            vibrate();
             const name = document.getElementById('reg-name').value.trim();
             const phone = document.getElementById('login-phone').value.trim();
             const pass = document.getElementById('login-pass').value.trim();
@@ -353,26 +372,30 @@
                 document.getElementById('profile-name').innerText = currentUserData?.name || 'Бро';
                 document.getElementById('profile-phone').innerText = currentUserPhone;
                 
-                // Расчет лояльности
                 const spent = currentUserData?.totalSpent || 0;
                 document.getElementById('profile-spent').innerText = spent.toLocaleString() + ' ₸';
                 
-                let currentTier = discountTiers.find(t => spent >= t.limit);
-                userCurrentDiscount = currentTier.percent;
+                // Проверка ручной скидки из админки
+                if (currentUserData?.customDiscount !== undefined) {
+                    userCurrentDiscount = currentUserData.customDiscount;
+                } else {
+                    let currentTier = discountTiers.find(t => spent >= t.limit);
+                    userCurrentDiscount = currentTier.percent;
+                }
+                
                 document.getElementById('profile-discount-text').innerText = userCurrentDiscount + '% СКИДКА';
 
                 let nextTier = [...discountTiers].reverse().find(t => t.limit > spent);
-                if (nextTier) {
-                    let prevLimit = currentTier.limit;
+                if (nextTier && currentUserData?.customDiscount === undefined) {
+                    let prevLimit = discountTiers.find(t => spent >= t.limit).limit;
                     let progress = ((spent - prevLimit) / (nextTier.limit - prevLimit)) * 100;
                     document.getElementById('loyalty-bar').style.width = `${progress}%`;
                     document.getElementById('loyalty-next').innerText = `До скидки ${nextTier.percent}% осталось ${ (nextTier.limit - spent).toLocaleString() } ₸`;
                 } else {
                     document.getElementById('loyalty-bar').style.width = `100%`;
-                    document.getElementById('loyalty-next').innerText = `У тебя максимальная скидка!`;
+                    document.getElementById('loyalty-next').innerText = currentUserData?.customDiscount !== undefined ? 'Персональная скидка активна' : `У тебя максимальная скидка!`;
                 }
 
-                // Обновление цен в каталоге с учетом скидки
                 ['solo', 'double', 'company'].forEach(item => {
                     const priceEl = document.getElementById(`price-${item}`);
                     const badge = document.getElementById(`badge-${item}`);
@@ -384,15 +407,13 @@
                         priceEl.innerText = finalPrice.toLocaleString() + ' ₸';
                         
                         if(userCurrentDiscount > 0) {
-                            oldPrice.style.display = 'block';
-                            badge.style.display = 'inline-block';
+                            oldPrice.style.display = 'block'; badge.style.display = 'inline-block';
                             badge.innerText = `СКИДКА ${userCurrentDiscount}%`;
                         } else {
                             oldPrice.style.display = 'none'; badge.style.display = 'none';
                         }
                     }
                 });
-
                 listenOrders();
             } else {
                 document.getElementById('view-login').style.display = 'block';
@@ -418,9 +439,20 @@
         const strengthLabels = { 0:"ЛЕГКИЙ (0)", 1:"ЛЕГКИЙ (1)", 2:"ЛЕГКИЙ (2)", 3:"НИЖЕ СРЕДНЕГО", 4:"НИЖЕ СРЕДНЕГО", 5:"СРЕДНИЙ", 6:"СРЕДНИЙ", 7:"ВЫШЕ СРЕДНЕГО", 8:"ВЫШЕ СРЕДНЕГО", 9:"КРЕПКИЙ", 10:"КРЕПКИЙ" };
 
         window.addFlavor = function(f) {
+            vibrate();
             const inp = document.getElementById('flavor-input');
             inp.value = inp.value ? inp.value + ', ' + f : f;
             saveCurrentBowl();
+        };
+
+        window.applyMagicMix = function() {
+            vibrate();
+            document.getElementById('strength-slider').value = 4;
+            document.getElementById('strength-display').innerText = strengthLabels[4];
+            document.getElementById('flavor-input').value = "Сладкие ягоды (без цитруса)";
+            setIce(false);
+            saveCurrentBowl();
+            showToast("✨ Фирменный рецепт применен!");
         };
 
         function saveCurrentBowl() {
@@ -437,17 +469,16 @@
         document.getElementById('flavor-input').addEventListener('input', e => { bowlsData[activeBowlIndex].flavor = e.target.value; });
 
         window.setIce = function(val) { 
+            vibrate();
             bowlsData[activeBowlIndex].ice = val;
             document.getElementById('ice-yes').classList.toggle('active', val); 
             document.getElementById('ice-no').classList.toggle('active', !val); 
         };
 
         window.selectBowl = function(index) {
-            saveCurrentBowl();
-            activeBowlIndex = index;
-            renderBowlTabs();
+            vibrate();
+            saveCurrentBowl(); activeBowlIndex = index; renderBowlTabs();
             document.getElementById('lbl-strength').innerText = `КРЕПОСТЬ (ЧАША ${index+1})`;
-            
             const b = bowlsData[index];
             document.getElementById('strength-slider').value = b.strength;
             document.getElementById('strength-display').innerText = strengthLabels[b.strength];
@@ -468,7 +499,7 @@
         }
 
         window.addExtraBowl = function() {
-            saveCurrentBowl();
+            vibrate(); saveCurrentBowl();
             bowlsData.push({ strength: 5, flavor: '', ice: true });
             currentOrderFinalPrice += 2000;
             document.getElementById('modal-final-price').innerText = currentOrderFinalPrice.toLocaleString() + ' ₸';
@@ -476,14 +507,12 @@
         };
 
         window.openOrderModal = function(tariff, basePrice) {
+            vibrate();
             if(!currentUserPhone) { switchTab('tab-profile'); return showToast("Сначала войди в аккаунт"); }
             
             currentOrderTariff = tariff; 
             currentOrderFinalPrice = Math.floor(basePrice - (basePrice * (userCurrentDiscount / 100)));
-            
-            let numBowls = 1;
-            if(tariff === 'DOUBLE') numBowls = 2;
-            if(tariff === 'TEAM') numBowls = 4;
+            let numBowls = tariff === 'DOUBLE' ? 2 : (tariff === 'TEAM' ? 4 : 1);
 
             bowlsData = Array.from({length: numBowls}, () => ({ strength: 5, flavor: '', ice: true }));
             
@@ -492,31 +521,27 @@
             document.getElementById('comment-input').value = "";
             
             selectBowl(0);
-            
             const modal = document.getElementById('order-modal');
             modal.style.display = 'flex';
             setTimeout(() => modal.classList.add('show'), 10);
         };
 
         window.closeOrderModal = function() {
+            vibrate();
             const modal = document.getElementById('order-modal');
             modal.classList.remove('show');
             setTimeout(() => modal.style.display = 'none', 300);
         };
 
         window.submitOrder = async function() {
-            saveCurrentBowl(); 
+            vibrate(); saveCurrentBowl(); 
             const comment = document.getElementById('comment-input').value.trim();
             if(!comment) return showToast("Укажи адрес доставки!");
 
             const submitBtn = document.getElementById('submit-btn');
             submitBtn.innerText = "Секунду..."; submitBtn.disabled = true;
 
-            let bowlsArrayForDb = bowlsData.map(b => ({
-                strength: strengthLabels[b.strength], 
-                flavor: b.flavor || "На усмотрение", 
-                ice: b.ice 
-            }));
+            let bowlsArrayForDb = bowlsData.map(b => ({ strength: strengthLabels[b.strength], flavor: b.flavor || "На усмотрение", ice: b.ice }));
 
             try {
                 await addDoc(collection(db, "orders"), {
@@ -563,7 +588,10 @@
             });
         }
 
-        window.addEventListener('DOMContentLoaded', () => { if(currentUserPhone) updateUI(); });
+        window.addEventListener('DOMContentLoaded', () => { 
+            setTimeout(() => { document.getElementById('splash-screen').style.opacity = '0'; setTimeout(() => document.getElementById('splash-screen').style.display = 'none', 500); }, 1500);
+            if(currentUserPhone) updateUI(); 
+        });
     </script>
 </body>
 </html>
