@@ -37,23 +37,21 @@
         * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
         body { font-family: var(--font-body); background-color: var(--bg-main); color: var(--text-main); display: flex; flex-direction: column; height: 100vh; overflow: hidden; transition: var(--transition); }
 
-        /* Живой фон (Аура/Дым) */
         .ambient-bg { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: -1; overflow: hidden; pointer-events: none; }
         .ambient-blob { position: absolute; filter: blur(80px); border-radius: 50%; animation: float 10s infinite alternate ease-in-out; opacity: 0.8;}
         .blob-1 { width: 300px; height: 300px; background: var(--aura-1); top: -10%; left: -10%; animation-delay: 0s; }
         .blob-2 { width: 400px; height: 400px; background: var(--aura-2); bottom: -20%; right: -10%; animation-delay: -5s; }
         @keyframes float { 0% { transform: translate(0, 0) scale(1); } 100% { transform: translate(50px, 50px) scale(1.2); } }
 
-        /* Splash Screen */
         #splash-screen { position: fixed; inset: 0; background: var(--bg-main); z-index: 999999; display: flex; flex-direction: column; justify-content: center; align-items: center; transition: opacity 0.6s ease; backdrop-filter: blur(20px);}
         .splash-logo { font-family: var(--font-vandal); font-size: 4.5rem; color: var(--text-main); text-shadow: 0 0 30px var(--aura-1); animation: pulse 2s infinite; }
         .splash-sub { font-weight: 900; text-transform: uppercase; letter-spacing: 4px; margin-top: 15px; background: linear-gradient(90deg, var(--accent), var(--secondary)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
 
         .glass { background: var(--bg-card); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); border: 1px solid var(--border-color); box-shadow: var(--glass-shadow); }
 
-        .btn { display: inline-flex; justify-content: center; align-items: center; width: 100%; font-family: var(--font-body); font-weight: 800; text-transform: uppercase; padding: 18px 20px; border: none; border-radius: var(--radius-sm); font-size: 1rem; cursor: pointer; transition: 0.2s; position: relative; overflow: hidden; letter-spacing: 1px;}
+        .btn { display: inline-flex; justify-content: center; align-items: center; width: 100%; font-family: var(--font-body); font-weight: 800; text-transform: uppercase; padding: 18px 20px; border: none; border-radius: var(--radius-sm); font-size: 1rem; cursor: pointer; transition: 0.2s; position: relative; overflow: hidden; letter-spacing: 1px; z-index: 2;}
         .btn:active { transform: scale(0.96); }
-        .btn::after { content: ''; position: absolute; top: 0; left: -100%; width: 100%; height: 100%; background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent); transition: 0.5s; }
+        .btn::after { content: ''; position: absolute; top: 0; left: -100%; width: 100%; height: 100%; background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent); transition: 0.5s; z-index: -1;}
         .btn:active::after { left: 100%; transition: 0s; }
         
         .btn-cyan { background: var(--secondary); color: #000; box-shadow: 0 5px 20px rgba(0, 229, 255, 0.3); }
@@ -68,7 +66,7 @@
         .pulse-dot { width: 8px; height: 8px; background-color: #00ff88; border-radius: 50%; box-shadow: 0 0 10px #00ff88; animation: pulse-green 2s infinite; }
         @keyframes pulse-green { 0% { box-shadow: 0 0 0 0 rgba(0, 255, 136, 0.4); } 70% { box-shadow: 0 0 0 10px rgba(0, 255, 136, 0); } 100% { box-shadow: 0 0 0 0 rgba(0, 255, 136, 0); } }
 
-        .app-content { flex-grow: 1; overflow-y: auto; padding: 10px 5vw 120px; -ms-overflow-style: none; scrollbar-width: none; perspective: 1000px;}
+        .app-content { flex-grow: 1; overflow-y: auto; padding: 10px 5vw 120px; -ms-overflow-style: none; scrollbar-width: none; position: relative;}
         .app-content::-webkit-scrollbar { display: none; }
         .tab-pane { display: none; animation: slideUpFade 0.5s cubic-bezier(0.2, 0.8, 0.2, 1); }
         .tab-pane.active { display: block; }
@@ -76,18 +74,16 @@
         
         .section-title { font-weight: 900; font-size: 1.8rem; text-transform: uppercase; margin-bottom: 25px; color: var(--text-main); letter-spacing: -1px;}
         
-        /* 3D КАРТОЧКИ */
-        .app-card { padding: 30px; margin-bottom: 20px; border-radius: var(--radius-lg); transition: transform 0.1s ease-out, box-shadow 0.3s; transform-style: preserve-3d; position: relative;}
-        .app-card-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 15px; transform: translateZ(30px);}
+        .app-card { padding: 30px; margin-bottom: 20px; border-radius: var(--radius-lg); transition: box-shadow 0.3s; position: relative;}
+        .app-card-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 15px; }
         .app-card-title { font-family: var(--font-vandal); font-size: 2.8rem; line-height: 1; text-shadow: 2px 4px 10px rgba(0,0,0,0.2);}
         .app-card-price { font-weight: 900; font-size: 1.8rem; color: var(--text-main); text-align: right;}
-        .app-card-desc { font-weight: 700; font-size: 1.05rem; margin-bottom: 15px; line-height: 1.4; color: var(--text-main); transform: translateZ(20px);}
-        .app-card-kit { font-weight: 500; font-size: 0.85rem; color: var(--text-muted); margin-bottom: 25px; line-height: 1.5; transform: translateZ(10px);}
+        .app-card-desc { font-weight: 700; font-size: 1.05rem; margin-bottom: 15px; line-height: 1.4; color: var(--text-main); }
+        .app-card-kit { font-weight: 500; font-size: 0.85rem; color: var(--text-muted); margin-bottom: 25px; line-height: 1.5; }
         
         .discount-badge { font-family: var(--font-body); background: var(--accent); color: #fff; font-size: 0.75rem; padding: 4px 8px; border-radius: 6px; font-weight: 900; margin-bottom: 5px; display: inline-block;}
         .old-price { font-size: 1rem; color: var(--text-muted); text-decoration: line-through; font-weight: 900; display: block; margin-bottom: -5px;}
 
-        /* Модалка с пружиной */
         .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.7); backdrop-filter: blur(10px); z-index: 10000; display: none; justify-content: center; align-items: flex-end; opacity: 0; transition: opacity 0.4s; }
         .modal-overlay.show { opacity: 1; }
         .modal-content { background: var(--bg-main); width: 100%; max-width: 600px; border-radius: 40px 40px 0 0; padding: 40px 5vw calc(40px + env(safe-area-inset-bottom)); transform: translateY(100%); transition: transform 0.5s cubic-bezier(0.34, 1.56, 0.64, 1); max-height: 90vh; overflow-y: auto; box-shadow: 0 -20px 50px rgba(0,0,0,0.5); border-top: 1px solid var(--border-color);}
@@ -100,14 +96,12 @@
 
         .modal-label { font-weight: 800; font-size: 0.8rem; margin-top: 20px; margin-bottom: 10px; display: block; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px;}
         
-        /* Умный ползунок */
         .range-slider { width: 100%; appearance: none; height: 12px; background: linear-gradient(90deg, #00e5ff, #ffd700, #ff0055); border-radius: 10px; outline: none; margin-bottom: 10px; opacity: 0.8; transition: 0.3s;}
         .range-slider:active { opacity: 1; }
         .range-slider::-webkit-slider-thumb { appearance: none; width: 32px; height: 32px; background: #fff; border: 4px solid var(--text-main); border-radius: 50%; cursor: pointer; box-shadow: 0 4px 10px rgba(0,0,0,0.3); transition: 0.1s;}
         .range-slider::-webkit-slider-thumb:active { transform: scale(1.2); }
         .strength-text { font-weight: 900; font-size: 1.4rem; text-align: center; margin-bottom: 10px; color: var(--text-main); text-transform: uppercase;}
         
-        /* Поле с микрофоном */
         .input-with-mic { position: relative; display: flex; align-items: center; margin-bottom: 15px;}
         .input-with-mic input { margin-bottom: 0; padding-right: 50px;}
         .mic-btn { position: absolute; right: 10px; background: transparent; border: none; font-size: 1.5rem; cursor: pointer; padding: 10px; border-radius: 50%; transition: 0.2s;}
@@ -169,7 +163,7 @@
     <div class="app-content">
         <div id="tab-home" class="tab-pane active">
             <h2 class="section-title">Твой статус</h2>
-            <div id="home-empty" class="glass tilt-card" style="text-align: center; padding: 60px 20px; border-radius: var(--radius-lg);">
+            <div id="home-empty" class="glass" style="text-align: center; padding: 60px 20px; border-radius: var(--radius-lg);">
                 <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" style="margin-bottom:20px; color:var(--text-muted);"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
                 <p style="font-weight: 700; font-size: 1.1rem;">Готов к дыму?</p>
                 <p style="font-size: 0.9rem; color: var(--text-muted); margin-top: 5px;">Сделай свой первый заказ.</p>
@@ -181,7 +175,7 @@
         <div id="tab-store" class="tab-pane">
             <h2 class="section-title">Арсенал</h2>
             
-            <div class="app-card glass tilt-card">
+            <div class="app-card glass">
                 <div class="app-card-header">
                     <span class="app-card-title">SOLO</span>
                     <div style="text-align: right;">
@@ -195,7 +189,7 @@
                 <button class="btn btn-black" onclick="openOrderModal('SOLO', 7000)">Выбрать</button>
             </div>
 
-            <div class="app-card glass tilt-card" style="border: 1px solid var(--accent); box-shadow: 0 10px 30px rgba(255,0,85,0.1);">
+            <div class="app-card glass" style="border: 1px solid var(--accent); box-shadow: 0 10px 30px rgba(255,0,85,0.1);">
                 <div class="app-card-header">
                     <span class="app-card-title" style="background: linear-gradient(90deg, #ff0055, #ffaa00); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">DOUBLE</span>
                     <div style="text-align: right;">
@@ -206,10 +200,10 @@
                 </div>
                 <p class="app-card-desc">Хит продаж. Две забивки — выгоднее!</p>
                 <p class="app-card-kit">1 аппарат • 2 забивки • 8 углей • плитка</p>
-                <button class="btn btn-red" onclick="openOrderModal('DOUBLE', 9000)">Настроить ХИТ</button>
+                <button class="btn btn-red" onclick="openOrderModal('DOUBLE', 9000)">Выбрать</button>
             </div>
 
-            <div class="app-card glass tilt-card" style="border: 1px solid var(--secondary); box-shadow: 0 10px 30px rgba(0,229,255,0.1);">
+            <div class="app-card glass" style="border: 1px solid var(--secondary); box-shadow: 0 10px 30px rgba(0,229,255,0.1);">
                 <div class="app-card-header">
                     <span class="app-card-title" style="color: var(--secondary);">TEAM</span>
                     <div style="text-align: right;">
@@ -220,12 +214,12 @@
                 </div>
                 <p class="app-card-desc">Идеально для тусовки с друзьями.</p>
                 <p class="app-card-kit">2 аппарата • 4 забивки • 16 углей • 2 плитки</p>
-                <button class="btn btn-cyan" onclick="openOrderModal('TEAM', 16000)">Для компании</button>
+                <button class="btn btn-cyan" onclick="openOrderModal('TEAM', 16000)">Выбрать</button>
             </div>
         </div>
 
         <div id="tab-profile" class="tab-pane">
-            <div id="view-login" class="glass tilt-card" style="padding: 40px 20px; border-radius: var(--radius-lg); text-align: center;">
+            <div id="view-login" class="glass" style="padding: 40px 20px; border-radius: var(--radius-lg); text-align: center;">
                 <h2 class="section-title">Вход</h2>
                 <input type="text" class="modal-input" id="reg-name" placeholder="Твое имя (для новых)" style="display: none; text-align: center;">
                 <input type="tel" class="modal-input" id="login-phone" placeholder="Номер: 7700..." style="text-align: center; font-size: 1.2rem;">
@@ -236,7 +230,7 @@
 
             <div id="view-profile" style="display: none;">
                 <h2 class="section-title">Профиль</h2>
-                <div class="glass tilt-card" style="padding: 35px; border-radius: var(--radius-lg); margin-bottom: 20px; background: linear-gradient(145deg, rgba(255,255,255,0.1), transparent);">
+                <div class="glass" style="padding: 35px; border-radius: var(--radius-lg); margin-bottom: 20px; background: linear-gradient(145deg, rgba(255,255,255,0.1), transparent);">
                     <p style="font-weight: 900; font-size: 1.2rem; color: var(--text-muted);" id="profile-name">Имя</p>
                     <div style="font-family: var(--font-vandal); font-size: 2.2rem; margin-bottom: 30px; letter-spacing: 2px;" id="profile-phone">...</div>
                     
@@ -326,20 +320,8 @@
         const firebaseConfig = { apiKey: "AIzaSyAk8sJuPI1N4EL1hD3CisVRoEs4nmudvP0", authDomain: "damdymdb.firebaseapp.com", projectId: "damdymdb", storageBucket: "damdymdb.firebasestorage.app", messagingSenderId: "43924470905", appId: "1:43924470905:web:0310c5298da38d7f56a8a8" };
         const app = initializeApp(firebaseConfig); const db = getFirestore(app);
 
-        // --- ВАУ ФИШКИ: Вибрация и 3D Карточки ---
         const vibrate = () => { if (navigator.vibrate) navigator.vibrate(50); };
-        
-        document.querySelectorAll('.tilt-card').forEach(card => {
-            card.addEventListener('mousemove', e => {
-                const rect = card.getBoundingClientRect();
-                const x = e.clientX - rect.left; const y = e.clientY - rect.top;
-                const xc = rect.width/2; const yc = rect.height/2;
-                card.style.transform = `perspective(1000px) rotateY(${(x - xc)/20}deg) rotateX(${-(y - yc)/20}deg) scale3d(1.02, 1.02, 1.02)`;
-            });
-            card.addEventListener('mouseleave', () => card.style.transform = '');
-        });
 
-        // --- ВАУ ФИШКИ: Голосовой ввод вкуса (ИИ) ---
         window.startVoiceRecognition = function() {
             const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
             if (!SpeechRecognition) return showToast("🎙️ Твой браузер не поддерживает голосовой ввод");
@@ -361,7 +343,6 @@
             recognition.start();
         };
 
-        // UI Логика
         window.showToast = function(msg) {
             const t = document.createElement('div'); t.className = 'toast'; t.innerHTML = msg;
             document.getElementById('toast-container').appendChild(t);
@@ -392,7 +373,6 @@
             f.style.display = f.style.display === 'none' ? 'block' : 'none';
         };
 
-        // ДАННЫЕ И АВТОРИЗАЦИЯ
         let currentUserPhone = localStorage.getItem('damdym_phone') || null;
         let currentUserData = null; let userCurrentDiscount = 0;
         const discountTiers = [{ limit: 1000000, percent: 20 }, { limit: 600000, percent: 15 }, { limit: 400000, percent: 10 }, { limit: 250000, percent: 7 }, { limit: 150000, percent: 5 }, { limit: 75000, percent: 3 }, { limit: 0, percent: 0 }];
@@ -483,7 +463,6 @@
             }
         }
 
-        // ЗАКАЗЫ И МОДАЛКА
         let currentOrderTariff = "", currentOrderFinalPrice = 0;
         let bowlsData = []; let activeBowlIndex = 0;
         const strengthLabels = { 0:"ВООБЩЕ ЛЕГКО (0)", 1:"ЛЕГКО (1)", 2:"ЛЕГКО (2)", 3:"НИЖЕ СРЕДНЕГО", 4:"КОМФОРТ (4)", 5:"КЛАССИКА (5)", 6:"КЛАССИКА (6)", 7:"ПЛОТНО (7)", 8:"КРЕПКО (8)", 9:"ОЧЕНЬ КРЕПКО", 10:"HARDCORE" };
@@ -546,7 +525,6 @@
             try {
                 await addDoc(collection(db, "orders"), { phone: currentUserPhone, name: currentUserData?.name || "Бро", tariff: currentOrderTariff, price: currentOrderFinalPrice, comment: comment, bowls: bowlsArrayForDb, status: "new", createdAt: Date.now() });
                 
-                // --- ВАУ ФИШКА: КОНФЕТТИ ПРИ УСПЕШНОМ ЗАКАЗЕ ---
                 confetti({ particleCount: 150, spread: 80, origin: { y: 0.6 }, colors: ['#ff0055', '#00e5ff', '#ffffff'] });
                 
                 showToast("🎉 ЗАКАЗ УЛЕТЕЛ!"); closeOrderModal(); switchTab('tab-home');
@@ -565,11 +543,10 @@
                     if(!['done', 'canceled_client', 'canceled_admin'].includes(o.status)) {
                         hasActive = true;
                         const statusMap = { 'new': 'ИЩЕМ МАСТЕРА ⏳', 'accepted': 'ДЫМ УЖЕ ГОТОВИТСЯ 🔥', 'courier': 'КУРЬЕР МЧИТСЯ 🚀' };
-                        // Градиент статуса
                         let bgStyle = o.status === 'new' ? 'var(--input-bg)' : (o.status === 'accepted' ? 'linear-gradient(45deg, rgba(255,0,85,0.2), transparent)' : 'linear-gradient(45deg, rgba(0,229,255,0.2), transparent)');
 
                         html += `
-                        <div class="app-card glass tilt-card" style="border-top: 4px solid var(--accent); overflow:hidden;">
+                        <div class="app-card glass" style="border-top: 4px solid var(--accent); overflow:hidden;">
                             <p style="font-weight: 800; font-size: 0.8rem; color: var(--accent); margin-bottom: 5px;">ТВОЙ АППАРАТ</p>
                             <h3 style="font-family: var(--font-vandal); font-size: 2.5rem;">${o.tariff}</h3>
                             <div style="background: ${bgStyle}; padding: 20px; border-radius: var(--radius-md); margin-top: 20px; font-weight: 900; font-size: 1.1rem; border: 1px solid var(--border-color);">
