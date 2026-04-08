@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hookah Vibe - Доставка</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-color: #121214;
+            --card-bg: #1e1e24;
+            --accent: #8b5cf6; /* Неоновый фиолетовый */
+            --accent-hover: #7c3aed;
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            margin: 0;
+            padding: 0;
+            padding-bottom: 80px; /* Отступ для нижней панели */
+        }
+
+        header {
+            padding: 20px;
+            text-align: center;
+            background: linear-gradient(180deg, rgba(18,18,20,1) 0%, rgba(18,18,20,0) 100%);
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+
+        h1 { margin: 0; font-size: 24px; font-weight: 800; letter-spacing: 1px; }
+        .accent-text { color: var(--accent); }
+
+        .container {
+            max-width: 500px; /* Дизайн под мобилки */
+            margin: 0 auto;
+            padding: 0 20px;
+        }
+
+        .card {
+            background-color: var(--card-bg);
+            border-radius: 20px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+        }
+
+        h2 { font-size: 18px; margin-top: 0; }
+
+        /* Выбор вкуса */
+        .flavor-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+            margin-top: 15px;
+        }
+
+        .flavor-btn {
+            background: rgba(255,255,255,0.05);
+            border: 2px solid transparent;
+            color: var(--text-main);
+            padding: 12px 5px;
+            border-radius: 12px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s ease;
+        }
+
+        .flavor-btn:hover { background: rgba(255,255,255,0.1); }
+        .flavor-btn.active {
+            background: rgba(139, 92, 246, 0.2);
+            border-color: var(--accent);
+            color: var(--accent);
+            transform: translateY(-2px);
+        }
+
+        /* Выбор крепости */
+        input[type=range] {
+            width: 100%;
+            accent-color: var(--accent);
+            margin: 15px 0;
+        }
+
+        /* Нижняя панель */
+        .bottom-bar {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            background-color: var(--card-bg);
+            padding: 15px 20px;
+            box-sizing: border-box;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-top: 1px solid rgba(255,255,255,0.05);
+            backdrop-filter: blur(10px);
+        }
+
+        .price { font-size: 20px; font-weight: 800; }
+
+        .btn-order {
+            background-color: var(--accent);
+            color: white;
+            border: none;
+            padding: 12px 30px;
+            border-radius: 30px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+
+        .btn-order:hover { background-color: var(--accent-hover); }
+    </style>
+</head>
+<body>
+
+    <header>
+        <h1>HOOKAH<span class="accent-text">VIBE</span></h1>
+    </header>
+
+    <div class="container">
+        <div class="card">
+            <h2>Собери свой микс (до 3-х)</h2>
+            <div class="flavor-grid">
+                <button class="flavor-btn" onclick="toggleFlavor(this)">Малина</button>
+                <button class="flavor-btn" onclick="toggleFlavor(this)">Манго</button>
+                <button class="flavor-btn" onclick="toggleFlavor(this)">Мята</button>
+                <button class="flavor-btn" onclick="toggleFlavor(this)">Кола</button>
+                <button class="flavor-btn" onclick="toggleFlavor(this)">Дыня</button>
+                <button class="flavor-btn" onclick="toggleFlavor(this)">Лёд</button>
+            </div>
+        </div>
+
+        <div class="card">
+            <h2>Крепость: <span id="strengthValue" class="accent-text">4</span>/10</h2>
+            <p style="color: var(--text-muted); font-size: 12px; margin-bottom: 0;">Рекомендуем 4 для мягкого курения</p>
+            <input type="range" min="1" max="10" value="4" oninput="document.getElementById('strengthValue').innerText = this.value">
+        </div>
+        
+        <div class="card">
+            <h2>Пожелания</h2>
+            <textarea placeholder="Например: без цитрусовых..." style="width: 100%; box-sizing: border-box; background: rgba(255,255,255,0.05); border: none; color: white; padding: 15px; border-radius: 12px; resize: none; font-family: inherit; margin-top: 10px;"></textarea>
+        </div>
+    </div>
+
+    <div class="bottom-bar">
+        <div>
+            <div style="font-size: 12px; color: var(--text-muted);">Итого</div>
+            <div class="price">8000 ₸</div>
+        </div>
+        <button class="btn-order" onclick="alert('Заказ отправлен!')">Заказать</button>
+    </div>
+
+    <script>
+        // Простая логика выбора вкусов
+        let selectedCount = 0;
+        function toggleFlavor(btn) {
+            if (btn.classList.contains('active')) {
+                btn.classList.remove('active');
+                selectedCount--;
+            } else {
+                if (selectedCount < 3) {
+                    btn.classList.add('active');
+                    selectedCount++;
+                } else {
+                    alert('Можно выбрать максимум 3 вкуса');
+                }
+            }
+        }
+    </script>
+</body>
+</html>
