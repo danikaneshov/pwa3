@@ -89,7 +89,7 @@
         .modal-overlay.show .modal-content { transform: translateY(0); }
         .modal-drag { width: 50px; height: 6px; background: var(--border-color); border-radius: 10px; margin: -20px auto 30px; }
         
-        .bowl-tabs-container { display: flex; gap: 10px; margin-bottom: 20px; }
+        .bowl-tabs-container { display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap;}
         .bowl-tab { flex: 1; display: flex; align-items: center; justify-content: center; font-family: var(--font-vandal); font-size: 1.5rem; padding: 15px 0; border: 2px solid transparent; border-radius: var(--radius-md); cursor: pointer; color: var(--text-muted); transition: 0.3s; background: var(--input-bg);}
         .bowl-tab.active { background: var(--accent); color: #fff; transform: scale(1.05); box-shadow: 0 10px 20px rgba(255,0,85,0.3);}
 
@@ -201,9 +201,9 @@
                 <div class="app-card-header">
                     <span class="app-card-title" style="color: var(--secondary);">TEAM</span>
                     <div style="text-align: right;">
-                        <span class="discount-badge" id="badge-company" style="display: none;">СКИДКА</span>
-                        <span class="old-price" id="old-price-company" style="display: none;">16 000 ₸</span>
-                        <span class="app-card-price" id="price-company" data-base="16000">16 000 ₸</span>
+                        <span class="discount-badge" id="badge-team" style="display: none;">СКИДКА</span>
+                        <span class="old-price" id="old-price-team" style="display: none;">16 000 ₸</span>
+                        <span class="app-card-price" id="price-team" data-base="16000">16 000 ₸</span>
                     </div>
                 </div>
                 <p class="app-card-desc">Идеально для тусовки с друзьями.</p>
@@ -219,7 +219,7 @@
                 <input type="tel" class="modal-input" id="login-phone" placeholder="Номер: 7700..." style="text-align: center; font-size: 1.2rem;">
                 <input type="password" class="modal-input" id="login-pass" placeholder="Пароль" style="text-align: center;">
                 <button class="btn btn-red" onclick="login()">Ворваться</button>
-                <p style="margin-top: 25px; font-weight: 700; cursor: pointer; color: var(--text-muted); text-decoration: underline;" onclick="toggleRegField()">Создать аккаунт</p>
+                <p style="margin-top: 25px; font-weight: 700; cursor: pointer; color: var(--text-muted); text-decoration: underline;" onclick="toggleRegField()" id="toggle-reg-text">Создать аккаунт</p>
             </div>
 
             <div id="view-profile" style="display: none;">
@@ -255,7 +255,10 @@
             
             <div class="bowl-tabs-container" id="bowl-tabs-container" style="display: none;"></div>
             
-            <button class="btn btn-outline" id="btn-add-bowl" onclick="addExtraBowl()" style="margin-bottom: 25px; border-style: dashed;">ДОБАВИТЬ ЧАШУ (2 000 ₸)</button>
+            <div style="display: flex; gap: 10px; margin-bottom: 25px;">
+                <button class="btn btn-outline" id="btn-add-bowl" onclick="addExtraBowl()" style="flex: 1; margin: 0; padding: 12px; font-size: 0.8rem; border-style: dashed;">+ ДОП. ЧАША (2000 ₸)</button>
+                <button class="btn btn-outline" id="btn-remove-bowl" onclick="removeExtraBowl()" style="display: none; flex: 1; margin: 0; padding: 12px; font-size: 0.8rem; border-color: var(--accent); color: var(--accent);">❌ УБРАТЬ</button>
+            </div>
 
             <label class="modal-label" id="lbl-strength">КРЕПОСТЬ</label>
             <input type="range" min="0" max="10" value="5" class="range-slider" id="strength-slider">
@@ -310,7 +313,6 @@
         const firebaseConfig = { apiKey: "AIzaSyAk8sJuPI1N4EL1hD3CisVRoEs4nmudvP0", authDomain: "damdymdb.firebaseapp.com", projectId: "damdymdb", storageBucket: "damdymdb.firebasestorage.app", messagingSenderId: "43924470905", appId: "1:43924470905:web:0310c5298da38d7f56a8a8" };
         const app = initializeApp(firebaseConfig); const db = getFirestore(app);
 
-        // Безопасная функция вибрации
         const vibrate = () => { try { if (navigator && navigator.vibrate) navigator.vibrate(50); } catch(e){} };
 
         window.showToast = function(msg) {
@@ -350,28 +352,43 @@
 
         window.toggleRegField = function() {
             const f = document.getElementById('reg-name');
-            f.style.display = f.style.display === 'none' ? 'block' : 'none';
+            const btnText = document.getElementById('toggle-reg-text');
+            if (f.style.display === 'none') {
+                f.style.display = 'block';
+                btnText.innerText = 'Уже есть аккаунт? Войти';
+            } else {
+                f.style.display = 'none';
+                btnText.innerText = 'Создать аккаунт';
+            }
         };
 
         let currentUserPhone = localStorage.getItem('damdym_phone') || null;
         let currentUserData = null; let userCurrentDiscount = 0;
+        let activeOrderUnsubscribe = null; // ИСПРАВЛЕНО: Переменная для отписки
         const discountTiers = [{ limit: 1000000, percent: 20 }, { limit: 600000, percent: 15 }, { limit: 400000, percent: 10 }, { limit: 250000, percent: 7 }, { limit: 150000, percent: 5 }, { limit: 75000, percent: 3 }, { limit: 0, percent: 0 }];
 
+        // ИСПРАВЛЕНО: Логика входа и валидация
         window.login = async function() {
             vibrate();
             const name = document.getElementById('reg-name').value.trim();
             const phone = document.getElementById('login-phone').value.trim();
             const pass = document.getElementById('login-pass').value.trim();
-            if(!phone || !pass) return showToast("⚠️ Введи номер и пароль");
+            const isRegMode = document.getElementById('reg-name').style.display !== 'none';
+
+            if(phone.length < 10 || pass.length < 4) return showToast("⚠️ Введи номер (от 10 цифр) и пароль (от 4 символов)");
             
             try {
                 const docSnap = await getDoc(doc(db, "users", phone));
+                
                 if (!docSnap.exists()) {
-                    if(!name && document.getElementById('reg-name').style.display !== 'none') return showToast("Укажи имя для регистрации!");
-                    await setDoc(doc(db, "users", phone), { name: name || "Бро", password: pass, totalSpent: 0 });
+                    if (!isRegMode) return showToast("❌ Аккаунт не найден. Нажми 'Создать аккаунт'");
+                    if (!name) return showToast("⚠️ Укажи имя для регистрации!");
+                    
+                    await setDoc(doc(db, "users", phone), { name: name, password: pass, totalSpent: 0 });
                     showToast("🎉 Аккаунт создан!");
-                } else if(docSnap.data().password !== pass) {
-                    return showToast("❌ Неверный пароль");
+                } else {
+                    if (isRegMode) return showToast("⚠️ Номер уже зарегистрирован. Войди в аккаунт!");
+                    if(docSnap.data().password !== pass) return showToast("❌ Неверный пароль");
                 }
                 
                 currentUserPhone = phone; localStorage.setItem('damdym_phone', phone);
@@ -381,6 +398,7 @@
 
         window.logout = function() {
             currentUserPhone = null; currentUserData = null; userCurrentDiscount = 0;
+            if(activeOrderUnsubscribe) { activeOrderUnsubscribe(); activeOrderUnsubscribe = null; } // ИСПРАВЛЕНО: Отписка
             localStorage.removeItem('damdym_phone');
             updateUI(); switchTab('tab-profile'); showToast("Вы вышли");
         };
@@ -414,7 +432,7 @@
                     document.getElementById('loyalty-next').innerText = currentUserData?.customDiscount !== undefined ? 'Персональная скидка VIP' : `Максимальный уровень!`;
                 }
 
-                ['solo', 'double', 'company'].forEach(item => {
+                ['solo', 'double', 'team'].forEach(item => { // ИСПРАВЛЕНО: Имя массива (team)
                     const priceEl = document.getElementById(`price-${item}`);
                     const badge = document.getElementById(`badge-${item}`);
                     const oldPrice = document.getElementById(`old-price-${item}`);
@@ -432,7 +450,7 @@
                 document.getElementById('view-profile').style.display = 'none';
                 document.getElementById('home-empty').style.display = 'block';
                 document.getElementById('home-trackers-container').style.display = 'none';
-                ['solo', 'double', 'company'].forEach(item => {
+                ['solo', 'double', 'team'].forEach(item => { // ИСПРАВЛЕНО: Имя массива
                     const priceEl = document.getElementById(`price-${item}`);
                     if(priceEl) {
                         priceEl.innerText = parseInt(priceEl.getAttribute('data-base')).toLocaleString() + ' ₸';
@@ -481,13 +499,40 @@
             document.getElementById('ice-yes').classList.toggle('active', b.ice); document.getElementById('ice-no').classList.toggle('active', !b.ice); 
         };
 
+        // ИСПРАВЛЕНО: Логика отрисовки вкладок и кнопки удаления
         function renderBowlTabs() {
             const container = document.getElementById('bowl-tabs-container');
-            if(bowlsData.length > 1) { container.style.display = 'flex'; container.innerHTML = bowlsData.map((_, i) => `<div class="bowl-tab ${i===activeBowlIndex?'active':''}" onclick="selectBowl(${i})">Чаша ${i+1}</div>`).join(''); } 
-            else { container.style.display = 'none'; document.getElementById('lbl-strength').innerText = `КРЕПОСТЬ`; }
+            const removeBtn = document.getElementById('btn-remove-bowl');
+            let defaultBowls = currentOrderTariff === 'DOUBLE' ? 2 : (currentOrderTariff === 'TEAM' ? 4 : 1);
+
+            if(bowlsData.length > 1) { 
+                container.style.display = 'flex'; 
+                container.innerHTML = bowlsData.map((_, i) => `<div class="bowl-tab ${i===activeBowlIndex?'active':''}" onclick="selectBowl(${i})">Чаша ${i+1}</div>`).join(''); 
+            } else { 
+                container.style.display = 'none'; 
+                document.getElementById('lbl-strength').innerText = `КРЕПОСТЬ`; 
+            }
+
+            if(removeBtn) {
+                removeBtn.style.display = bowlsData.length > defaultBowls ? 'block' : 'none';
+            }
         }
 
         window.addExtraBowl = function() { vibrate(); saveCurrentBowl(); bowlsData.push({ strength: 5, flavor: '', ice: true }); currentOrderFinalPrice += 2000; document.getElementById('modal-final-price').innerText = currentOrderFinalPrice.toLocaleString() + ' ₸'; selectBowl(bowlsData.length - 1); };
+
+        // ИСПРАВЛЕНО: Функция удаления чаши
+        window.removeExtraBowl = function() { 
+            vibrate(); 
+            let defaultBowls = currentOrderTariff === 'DOUBLE' ? 2 : (currentOrderTariff === 'TEAM' ? 4 : 1);
+            if(bowlsData.length <= defaultBowls) return;
+            
+            currentOrderFinalPrice -= 2000; 
+            document.getElementById('modal-final-price').innerText = currentOrderFinalPrice.toLocaleString() + ' ₸'; 
+            
+            bowlsData.splice(activeBowlIndex, 1);
+            let nextIndex = activeBowlIndex > 0 ? activeBowlIndex - 1 : 0;
+            selectBowl(nextIndex);
+        };
 
         window.openOrderModal = function(tariff, basePrice) {
             vibrate(); 
@@ -526,8 +571,10 @@
         window.cancelOrder = async function(orderId) { if(confirm("Точно отменить заказ?")) { await updateDoc(doc(db, "orders", orderId), { status: "canceled_client" }); showToast("Заказ отменен"); } };
 
         function listenOrders() {
+            if(activeOrderUnsubscribe) activeOrderUnsubscribe(); // ИСПРАВЛЕНО: Очистка старого слушателя
+            
             const q = query(collection(db, "orders"), where("phone", "==", currentUserPhone));
-            onSnapshot(q, (snapshot) => {
+            activeOrderUnsubscribe = onSnapshot(q, (snapshot) => {
                 let html = ''; let hasActive = false;
                 snapshot.forEach(docSnap => {
                     const o = docSnap.data(); o.id = docSnap.id;
