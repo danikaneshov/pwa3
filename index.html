@@ -58,7 +58,6 @@
         .btn-red { background: var(--accent); color: #fff; box-shadow: 0 5px 20px rgba(255, 0, 85, 0.3);}
         .btn-black { background: var(--text-main); color: var(--bg-main); }
         .btn-outline { background: transparent; color: var(--text-main); border: 2px solid var(--border-color); margin-top: 10px; }
-        .btn-magic { background: linear-gradient(135deg, #8a2be2, var(--accent)); color: white; border: none; box-shadow: 0 5px 20px rgba(138, 43, 226, 0.4); margin-bottom: 20px; border-radius: var(--radius-md);}
 
         header { padding: 20px 5vw; display: flex; justify-content: space-between; align-items: center; z-index: 10; padding-top: calc(20px + env(safe-area-inset-top)); }
         .logo { font-family: var(--font-vandal); font-size: 2.2rem; color: var(--text-main); }
@@ -101,11 +100,6 @@
         .range-slider::-webkit-slider-thumb { appearance: none; width: 32px; height: 32px; background: #fff; border: 4px solid var(--text-main); border-radius: 50%; cursor: pointer; box-shadow: 0 4px 10px rgba(0,0,0,0.3); transition: 0.1s;}
         .range-slider::-webkit-slider-thumb:active { transform: scale(1.2); }
         .strength-text { font-weight: 900; font-size: 1.4rem; text-align: center; margin-bottom: 10px; color: var(--text-main); text-transform: uppercase;}
-        
-        .input-with-mic { position: relative; display: flex; align-items: center; margin-bottom: 15px;}
-        .input-with-mic input { margin-bottom: 0; padding-right: 50px;}
-        .mic-btn { position: absolute; right: 10px; background: transparent; border: none; font-size: 1.5rem; cursor: pointer; padding: 10px; border-radius: 50%; transition: 0.2s;}
-        .mic-btn.recording { background: rgba(255,0,85,0.2); animation: pulse 1s infinite; }
 
         .flavor-tags { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 15px; }
         .flavor-tag { padding: 10px 18px; border-radius: 30px; font-size: 0.85rem; font-weight: 700; cursor: pointer; background: var(--input-bg); color: var(--text-main); transition: 0.2s; border: 1px solid transparent;}
@@ -259,10 +253,9 @@
                 <span id="modal-final-price" style="font-weight: 900; font-size: 1.8rem; color: var(--accent);">0 ₸</span>
             </div>
             
-            <button class="btn btn-magic" onclick="applyMagicMix()">✨ АВТОРСКИЙ МИКС</button>
-
             <div class="bowl-tabs-container" id="bowl-tabs-container" style="display: none;"></div>
-            <button class="btn btn-outline" id="btn-add-bowl" onclick="addExtraBowl()" style="padding: 12px; font-size: 0.8rem; margin-bottom: 25px; border-style: dashed;">+ ДОБАВИТЬ ЧАШУ (2 000 ₸)</button>
+            
+            <button class="btn btn-outline" id="btn-add-bowl" onclick="addExtraBowl()" style="margin-bottom: 25px; border-style: dashed;">ДОБАВИТЬ ЧАШУ (2 000 ₸)</button>
 
             <label class="modal-label" id="lbl-strength">КРЕПОСТЬ</label>
             <input type="range" min="0" max="10" value="5" class="range-slider" id="strength-slider">
@@ -277,10 +270,7 @@
                 <div class="flavor-tag" onclick="addFlavor('Десерт')">🧁 Десерт</div>
             </div>
             
-            <div class="input-with-mic">
-                <input type="text" class="modal-input" id="flavor-input" placeholder="Или напиши/продиктуй свой...">
-                <button class="mic-btn" id="mic-btn" onclick="startVoiceRecognition()">🎙️</button>
-            </div>
+            <input type="text" class="modal-input" id="flavor-input" placeholder="Или напиши свой вариант...">
 
             <label class="modal-label">ХОЛОДОК</label>
             <div class="ice-toggle">
@@ -323,27 +313,6 @@
         // Безопасная функция вибрации
         const vibrate = () => { try { if (navigator && navigator.vibrate) navigator.vibrate(50); } catch(e){} };
 
-        window.startVoiceRecognition = function() {
-            const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-            if (!SpeechRecognition) return showToast("🎙️ Твой браузер не поддерживает голосовой ввод");
-            
-            const recognition = new SpeechRecognition();
-            recognition.lang = 'ru-RU';
-            const micBtn = document.getElementById('mic-btn');
-            
-            recognition.onstart = () => { micBtn.classList.add('recording'); showToast("Говори, я слушаю..."); vibrate(); };
-            recognition.onresult = (event) => {
-                const text = event.results[0][0].transcript;
-                const inp = document.getElementById('flavor-input');
-                inp.value = inp.value ? inp.value + ' ' + text : text;
-                saveCurrentBowl();
-                showToast("✅ Записал!"); vibrate();
-            };
-            recognition.onerror = () => { showToast("❌ Не удалось распознать"); };
-            recognition.onend = () => { micBtn.classList.remove('recording'); };
-            recognition.start();
-        };
-
         window.showToast = function(msg) {
             const t = document.createElement('div'); t.className = 'toast'; t.innerHTML = msg;
             document.getElementById('toast-container').appendChild(t);
@@ -360,7 +329,6 @@
             document.querySelector('.ambient-bg').style.display = newTheme === 'dark' ? 'block' : 'none';
         };
 
-        // ИСПРАВЛЕННАЯ логика переключения вкладок (теперь не ломает скрипт)
         window.switchTab = function(tabId, el = null) {
             vibrate();
             document.querySelectorAll('.tab-pane').forEach(t => t.classList.remove('active'));
@@ -480,7 +448,6 @@
         const strengthLabels = { 0:"ВООБЩЕ ЛЕГКО (0)", 1:"ЛЕГКО (1)", 2:"ЛЕГКО (2)", 3:"НИЖЕ СРЕДНЕГО", 4:"КОМФОРТ (4)", 5:"КЛАССИКА (5)", 6:"КЛАССИКА (6)", 7:"ПЛОТНО (7)", 8:"КРЕПКО (8)", 9:"ОЧЕНЬ КРЕПКО", 10:"HARDCORE" };
 
         window.addFlavor = function(f) { vibrate(); const inp = document.getElementById('flavor-input'); inp.value = inp.value ? inp.value + ', ' + f : f; saveCurrentBowl(); };
-        window.applyMagicMix = function() { vibrate(); document.getElementById('strength-slider').value = 4; updateSliderColor(4); document.getElementById('strength-display').innerText = strengthLabels[4]; document.getElementById('flavor-input').value = "Сладкие ягоды (без цитруса)"; setIce(false); saveCurrentBowl(); showToast("✨ Магия применена!"); };
 
         function saveCurrentBowl() {
             if(bowlsData.length > 0 && document.getElementById('strength-slider')) {
