@@ -361,16 +361,26 @@ window.cancelOrder = async function(orderId) { if(confirm("Точно отмен
 function listenOrders() {
     if(activeOrderUnsubscribe) activeOrderUnsubscribe(); 
     
-    // Грузим все заказы пользователя (для активных и для истории)
-    const q = query(collection(db, "orders"), where("phone", "==", currentUserPhone), orderBy("createdAt", "desc"));
+    // Убрали orderBy, чтобы Firebase не блокировал запрос
+    const q = query(collection(db, "orders"), where("phone", "==", currentUserPhone));
     
     activeOrderUnsubscribe = onSnapshot(q, (snapshot) => {
         let activeHtml = ''; let hasActive = false;
         let historyHtml = '';
         
+        // 1. Собираем все документы в массив
+        let ordersArray = [];
         snapshot.forEach(docSnap => {
-            const o = docSnap.data(); o.id = docSnap.id;
-            
+            let data = docSnap.data();
+            data.id = docSnap.id;
+            ordersArray.push(data);
+        });
+
+        // 2. Сортируем заказы по времени создания (от новых к старым)
+        ordersArray.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+        
+        // 3. Распределяем по блокам
+        ordersArray.forEach(o => {
             // Если заказ в работе
             if(!['done', 'canceled_client', 'canceled_admin'].includes(o.status)) {
                 hasActive = true;
@@ -403,6 +413,16 @@ function listenOrders() {
                 </div>`;
             }
         });
+
+        // Обновляем главную вкладку
+        document.getElementById('home-trackers-container').innerHTML = activeHtml;
+        document.getElementById('home-trackers-container').style.display = hasActive ? 'block' : 'none';
+        document.getElementById('home-empty').style.display = hasActive ? 'none' : 'block';
+
+        // Обновляем историю в профиле
+        document.getElementById('profile-history-container').innerHTML = historyHtml || '<p style="text-align:center; color:var(--text-muted); font-weight:600;">Пока пусто. Время дыметь!</p>';
+    });
+}
 
         // Обновляем главную вкладку
         document.getElementById('home-trackers-container').innerHTML = activeHtml;
