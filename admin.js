@@ -248,7 +248,7 @@ window.savePromo = async function() {
     const code = document.getElementById('promo-code-input').value.trim().toUpperCase();
     const discount = Number(document.getElementById('promo-discount-input').value);
     const globalLimit = Number(document.getElementById('promo-global-limit').value);
-    const userLimit = Number(document.getElementById('promo-user-limit').value);
+    const perUserLimit = Number(document.getElementById('promo-user-limit').value); // Исправлено здесь!
 
     if(!code || !discount) return alert("Укажи код и скидку!");
 
@@ -262,7 +262,10 @@ window.savePromo = async function() {
             await setDoc(promoRef, { discount, globalLimit, perUserLimit, globalUsed: 0, isActive: true });
         }
         closePromoModal();
-    } catch(e) { alert("Ошибка сохранения промокода"); }
+    } catch(e) { 
+        console.error(e); // Чтобы, если что, ошибку было видно в консоли (F12)
+        alert("Ошибка сохранения промокода"); 
+    }
 };
 
 window.togglePromoStatus = async function(code, newStatus) {
