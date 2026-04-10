@@ -105,16 +105,26 @@
                 <div class="glass" style="padding: 35px; border-radius: var(--radius-lg); margin-bottom: 20px; background: linear-gradient(145deg, rgba(255,255,255,0.1), transparent);">
                     <p style="font-weight: 900; font-size: 1.2rem; color: var(--text-muted);" id="profile-name">Имя</p>
                     <div style="font-family: var(--font-vandal); font-size: 2.2rem; margin-bottom: 30px; letter-spacing: 2px;" id="profile-phone">...</div>
+                    
                     <div style="background: var(--input-bg); padding: 25px; border-radius: var(--radius-md); border: 1px solid var(--border-color);">
                         <div style="display: flex; justify-content: space-between; align-items: flex-end;">
                             <p style="font-weight: 800; font-size: 0.8rem; text-transform: uppercase; color: var(--text-muted);">Лояльность</p>
                             <span style="font-weight: 900; background: var(--text-main); color: var(--bg-main); padding: 6px 12px; border-radius: 8px; font-size: 0.9rem;" id="profile-discount-text">0% СКИДКА</span>
                         </div>
                         <div style="font-size: 2.5rem; font-weight: 900; margin: 15px 0 10px;" id="profile-spent">0 ₸</div>
-                        <div class="loyalty-progress-bg"><div class="loyalty-progress-fill" id="loyalty-bar"></div></div>
+                        <div class="loyalty-progress-bg">
+                            <div class="loyalty-progress-fill" id="loyalty-bar"></div>
+                        </div>
                         <div id="loyalty-next" style="font-size: 0.85rem; font-weight: 700; color: var(--text-muted);">...</div>
                     </div>
                 </div>
+
+                <div style="margin-top: 30px; margin-bottom: 20px;">
+                    <p style="font-weight: 900; font-size: 1.1rem; color: var(--text-muted); margin-bottom: 15px; text-transform: uppercase;">История заказов</p>
+                    <div id="profile-history-container">
+                        </div>
+                </div>
+
                 <button class="btn btn-outline" style="border-radius: var(--radius-lg);" onclick="logout()">Выйти</button>
             </div>
         </div>
@@ -125,7 +135,11 @@
             <div class="modal-drag"></div>
             <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 25px;">
                 <h2 style="font-family: var(--font-vandal); font-size: 3rem; line-height: 1;" id="modal-tariff-name">TARIF</h2>
-                <span id="modal-final-price" style="font-weight: 900; font-size: 1.8rem; color: var(--accent);">0 ₸</span>
+                <div style="text-align: right;">
+                    <span id="promo-badge" style="display: none; background: var(--accent); color: white; padding: 3px 6px; border-radius: 6px; font-size: 0.7rem; font-weight: 900; vertical-align: top;">ПРОМО</span>
+                    <br>
+                    <span id="modal-final-price" style="font-weight: 900; font-size: 1.8rem; color: var(--accent);">0 ₸</span>
+                </div>
             </div>
             
             <div class="bowl-tabs-container" id="bowl-tabs-container" style="display: none;"></div>
@@ -156,12 +170,18 @@
                 <div class="ice-btn" onclick="setIce(false)" id="ice-no">БЕЗ ЛЬДА</div>
             </div>
 
+            <label class="modal-label">ПРОМОКОД</label>
+            <div style="display: flex; gap: 10px; margin-bottom: 15px;">
+                <input type="text" class="modal-input" id="promo-input" style="margin-bottom: 0; text-transform: uppercase;" placeholder="ECЛИ ЕСТЬ">
+                <button class="btn btn-black" style="width: auto; padding: 0 20px;" onclick="applyPromo()">OK</button>
+            </div>
+
             <label class="modal-label">КУДА ВЕЗТИ?</label>
             <textarea class="modal-input" id="comment-input" rows="2" placeholder="Адрес, домофон, этаж..."></textarea>
 
             <div style="display: flex; gap: 15px; margin-top: 20px;">
                 <button class="btn btn-black" style="flex: 1;" onclick="closeOrderModal()">НАЗАД</button>
-                <button class="btn btn-red" style="flex: 2;" onclick="submitOrder()" id="submit-btn">ОФОРМИТЬ</button>
+                <button class="btn btn-red" style="flex: 2;" id="submit-btn" onclick="submitOrder()">ОФОРМИТЬ</button>
             </div>
         </div>
     </div>
