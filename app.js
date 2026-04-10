@@ -1,5 +1,5 @@
 import { db } from './firebase-config.js';
-import { doc, setDoc, getDoc, collection, addDoc, onSnapshot, query, where, updateDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+import { doc, setDoc, getDoc, collection, addDoc, onSnapshot, query, where, updateDoc, increment, orderBy, limit } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
 const vibrate = () => { try { if (navigator && navigator.vibrate) navigator.vibrate(50); } catch(e){} };
 
@@ -23,10 +23,13 @@ window.switchTab = function(tabId, el = null) {
     vibrate();
     document.querySelectorAll('.tab-pane').forEach(t => t.classList.remove('active'));
     document.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active'));
+    
     const targetTab = document.getElementById(tabId);
     if(targetTab) targetTab.classList.add('active');
-    if (el) el.classList.add('active');
-    else {
+    
+    if (el) {
+        el.classList.add('active');
+    } else {
         const navItems = document.querySelectorAll('.nav-item');
         if(tabId === 'tab-home' && navItems[0]) navItems[0].classList.add('active');
         if(tabId === 'tab-store' && navItems[1]) navItems[1].classList.add('active');
@@ -39,9 +42,11 @@ window.toggleRegField = function() {
     const f = document.getElementById('reg-name');
     const btnText = document.getElementById('toggle-reg-text');
     if (f.style.display === 'none') {
-        f.style.display = 'block'; btnText.innerText = 'Уже есть аккаунт? Войти';
+        f.style.display = 'block';
+        btnText.innerText = 'Уже есть аккаунт? Войти';
     } else {
-        f.style.display = 'none'; btnText.innerText = 'Создать аккаунт';
+        f.style.display = 'none';
+        btnText.innerText = 'Создать аккаунт';
     }
 };
 
@@ -56,19 +61,23 @@ window.login = async function() {
     const phone = document.getElementById('login-phone').value.trim();
     const pass = document.getElementById('login-pass').value.trim();
     const isRegMode = document.getElementById('reg-name').style.display !== 'none';
+
     if(phone.length < 10 || pass.length < 4) return showToast("⚠️ Введи номер (от 10 цифр) и пароль (от 4 символов)");
     
     try {
         const docSnap = await getDoc(doc(db, "users", phone));
+        
         if (!docSnap.exists()) {
             if (!isRegMode) return showToast("❌ Аккаунт не найден. Нажми 'Создать аккаунт'");
             if (!name) return showToast("⚠️ Укажи имя для регистрации!");
-            await setDoc(doc(db, "users", phone), { name: name, password: pass, totalSpent: 0 });
+            
+            await setDoc(doc(db, "users", phone), { name: name, password: pass, totalSpent: 0, usedPromos: {} });
             showToast("🎉 Аккаунт создан!");
         } else {
             if (isRegMode) return showToast("⚠️ Номер уже зарегистрирован. Войди в аккаунт!");
             if(docSnap.data().password !== pass) return showToast("❌ Неверный пароль");
         }
+        
         currentUserPhone = phone; localStorage.setItem('damdym_phone', phone);
         updateUI(); switchTab('tab-store'); showToast("🔥 Успешный вход!");
     } catch (e) { showToast("Ошибка сети"); }
@@ -94,7 +103,6 @@ async function updateUI() {
         const spent = currentUserData?.totalSpent || 0;
         document.getElementById('profile-spent').innerText = spent.toLocaleString() + ' ₸';
         
-        // ИСПРАВЛЕНИЕ: Точная проверка на наличие ручной скидки
         let hasCustomDiscount = currentUserData?.customDiscount !== undefined && currentUserData?.customDiscount !== null && currentUserData?.customDiscount !== "";
         
         if (hasCustomDiscount) {
@@ -107,7 +115,6 @@ async function updateUI() {
 
         let nextTier = [...discountTiers].reverse().find(t => t.limit > spent);
         
-        // ИСПРАВЛЕНИЕ: Прогресс-бар скрывается только если есть реальная ручная скидка
         if (nextTier && !hasCustomDiscount) {
             let prevLimit = discountTiers.find(t => spent >= t.limit).limit;
             let progress = ((spent - prevLimit) / (nextTier.limit - prevLimit)) * 100;
@@ -153,8 +160,11 @@ async function updateUI() {
     }
 }
 
-let currentOrderTariff = "", currentOrderFinalPrice = 0;
+// ПЕРЕМЕННЫЕ ЗАКАЗА
+let currentOrderTariff = "", currentOrderBasePrice = 0, currentOrderFinalPrice = 0;
 let bowlsData = []; let activeBowlIndex = 0;
+let appliedPromoObj = null; // Для хранения примененного промокода {code: '..', discount: 15}
+
 const strengthLabels = { 0:"ВООБЩЕ ЛЕГКО (0)", 1:"ЛЕГКО (1)", 2:"ЛЕГКО (2)", 3:"НИЖЕ СРЕДНЕГО", 4:"КОМФОРТ (4)", 5:"КЛАССИКА (5)", 6:"КЛАССИКА (6)", 7:"ПЛОТНО (7)", 8:"КРЕПКО (8)", 9:"ОЧЕНЬ КРЕПКО", 10:"HARDCORE" };
 
 window.addFlavor = function(f) { vibrate(); const inp = document.getElementById('flavor-input'); inp.value = inp.value ? inp.value + ', ' + f : f; saveCurrentBowl(); };
@@ -211,9 +221,31 @@ function renderBowlTabs() {
     if(removeBtn) removeBtn.style.display = bowlsData.length > defaultBowls ? 'block' : 'none';
 }
 
+// ПЕРЕСЧЕТ ЦЕНЫ (учитывает доп. чаши, лояльность и промокод)
+function recalcPrice() {
+    let defaultBowls = currentOrderTariff === 'DOUBLE' ? 2 : (currentOrderTariff === 'TEAM' ? 4 : 1);
+    let extraBowlsCount = Math.max(0, bowlsData.length - defaultBowls);
+    
+    let subtotal = currentOrderBasePrice + (extraBowlsCount * 2000);
+    
+    // Берем максимальную скидку (промокод или лояльность)
+    let bestDiscount = userCurrentDiscount;
+    if (appliedPromoObj && appliedPromoObj.discount > userCurrentDiscount) {
+        bestDiscount = appliedPromoObj.discount;
+        document.getElementById('promo-badge').style.display = 'inline-block';
+    } else {
+        document.getElementById('promo-badge').style.display = 'none';
+    }
+
+    currentOrderFinalPrice = Math.floor(subtotal - (subtotal * (bestDiscount / 100)));
+    document.getElementById('modal-final-price').innerText = currentOrderFinalPrice.toLocaleString() + ' ₸';
+}
+
 window.addExtraBowl = function() { 
-    vibrate(); saveCurrentBowl(); bowlsData.push({ strength: 5, flavor: '', ice: true }); currentOrderFinalPrice += 2000; 
-    document.getElementById('modal-final-price').innerText = currentOrderFinalPrice.toLocaleString() + ' ₸'; selectBowl(bowlsData.length - 1); 
+    vibrate(); saveCurrentBowl(); 
+    bowlsData.push({ strength: 5, flavor: '', ice: true }); 
+    recalcPrice();
+    selectBowl(bowlsData.length - 1); 
 };
 
 window.removeExtraBowl = function() { 
@@ -221,22 +253,66 @@ window.removeExtraBowl = function() {
     let defaultBowls = currentOrderTariff === 'DOUBLE' ? 2 : (currentOrderTariff === 'TEAM' ? 4 : 1);
     if(bowlsData.length <= defaultBowls) return;
     
-    currentOrderFinalPrice -= 2000; 
-    document.getElementById('modal-final-price').innerText = currentOrderFinalPrice.toLocaleString() + ' ₸'; 
     bowlsData.splice(activeBowlIndex, 1);
+    recalcPrice();
+
     let nextIndex = activeBowlIndex >= bowlsData.length ? bowlsData.length - 1 : activeBowlIndex;
     selectBowl(nextIndex, true); 
 };
 
+// ЛОГИКА ПРОМОКОДОВ
+window.applyPromo = async function() {
+    vibrate();
+    const codeInput = document.getElementById('promo-input').value.trim().toUpperCase();
+    if(!codeInput) return;
+
+    try {
+        const promoSnap = await getDoc(doc(db, "promocodes", codeInput));
+        
+        if(!promoSnap.exists()) return showToast("❌ Промокод не найден");
+        const p = promoSnap.data();
+        
+        if(p.isActive === false) return showToast("❌ Промокод неактивен");
+        if(p.globalLimit > 0 && (p.globalUsed || 0) >= p.globalLimit) return showToast("❌ Лимит исчерпан");
+        
+        const userUsedMap = currentUserData?.usedPromos || {};
+        const userUses = userUsedMap[codeInput] || 0;
+        
+        if(p.perUserLimit > 0 && userUses >= p.perUserLimit) return showToast("❌ Ты уже использовал этот код");
+
+        appliedPromoObj = { code: codeInput, discount: p.discount };
+        showToast(`✅ Код применен! Скидка: ${p.discount}%`);
+        recalcPrice();
+
+    } catch (e) { showToast("Ошибка проверки"); }
+};
+
 window.openOrderModal = function(tariff, basePrice) {
     vibrate(); 
-    if(!currentUserPhone) { switchTab('tab-profile'); return showToast("⚠️ Для заказа нужно войти!"); }
-    currentOrderTariff = tariff; currentOrderFinalPrice = Math.floor(basePrice - (basePrice * (userCurrentDiscount / 100)));
+    if(!currentUserPhone) { 
+        switchTab('tab-profile'); 
+        showToast("⚠️ Для заказа нужно войти!");
+        return; 
+    }
+    
+    currentOrderTariff = tariff; 
+    currentOrderBasePrice = basePrice;
+    appliedPromoObj = null; // Сброс промокода при новом открытии
+    document.getElementById('promo-input').value = "";
+    document.getElementById('promo-badge').style.display = 'none';
+
     let numBowls = tariff === 'DOUBLE' ? 2 : (tariff === 'TEAM' ? 4 : 1);
     bowlsData = Array.from({length: numBowls}, () => ({ strength: 5, flavor: '', ice: true }));
-    document.getElementById('modal-tariff-name').innerText = tariff; document.getElementById('modal-final-price').innerText = currentOrderFinalPrice.toLocaleString() + ' ₸'; document.getElementById('comment-input').value = "";
+    
+    document.getElementById('modal-tariff-name').innerText = tariff; 
+    document.getElementById('comment-input').value = "";
+    
+    recalcPrice();
     selectBowl(0);
-    const modal = document.getElementById('order-modal'); modal.style.display = 'flex'; setTimeout(() => modal.classList.add('show'), 10);
+    
+    const modal = document.getElementById('order-modal'); 
+    modal.style.display = 'flex'; 
+    setTimeout(() => modal.classList.add('show'), 10);
 };
 
 window.closeOrderModal = function() { vibrate(); const modal = document.getElementById('order-modal'); modal.classList.remove('show'); setTimeout(() => modal.style.display = 'none', 400); };
@@ -245,10 +321,35 @@ window.submitOrder = async function() {
     vibrate(); saveCurrentBowl(); const comment = document.getElementById('comment-input').value.trim();
     if(!comment) return showToast("⚠️ Укажи адрес доставки!");
     const submitBtn = document.getElementById('submit-btn'); submitBtn.innerText = "СЕКУНДУ..."; submitBtn.disabled = true;
+
     let bowlsArrayForDb = bowlsData.map(b => ({ strength: strengthLabels[b.strength], flavor: b.flavor || "На усмотрение", ice: b.ice }));
 
     try {
-        await addDoc(collection(db, "orders"), { phone: currentUserPhone, name: currentUserData?.name || "Бро", tariff: currentOrderTariff, price: currentOrderFinalPrice, comment: comment, bowls: bowlsArrayForDb, status: "new", createdAt: Date.now() });
+        let orderData = { 
+            phone: currentUserPhone, 
+            name: currentUserData?.name || "Бро", 
+            tariff: currentOrderTariff, 
+            price: currentOrderFinalPrice, 
+            comment: comment, 
+            bowls: bowlsArrayForDb, 
+            status: "new", 
+            createdAt: Date.now() 
+        };
+
+        if (appliedPromoObj) orderData.promoCode = appliedPromoObj.code;
+
+        // Создаем заказ
+        await addDoc(collection(db, "orders"), orderData);
+
+        // Обновляем статистику промокода (если был)
+        if (appliedPromoObj) {
+            await updateDoc(doc(db, "promocodes", appliedPromoObj.code), { globalUsed: increment(1) });
+            
+            const userUsedMap = currentUserData?.usedPromos || {};
+            userUsedMap[appliedPromoObj.code] = (userUsedMap[appliedPromoObj.code] || 0) + 1;
+            await updateDoc(doc(db, "users", currentUserPhone), { usedPromos: userUsedMap });
+        }
+        
         confetti({ particleCount: 150, spread: 80, origin: { y: 0.6 }, colors: ['#ff0055', '#00e5ff', '#ffffff'] });
         showToast("🎉 ЗАКАЗ УЛЕТЕЛ!"); closeOrderModal(); switchTab('tab-home');
     } catch(e) { showToast("Ошибка сети"); }
@@ -259,17 +360,24 @@ window.cancelOrder = async function(orderId) { if(confirm("Точно отмен
 
 function listenOrders() {
     if(activeOrderUnsubscribe) activeOrderUnsubscribe(); 
-    const q = query(collection(db, "orders"), where("phone", "==", currentUserPhone));
+    
+    // Грузим все заказы пользователя (для активных и для истории)
+    const q = query(collection(db, "orders"), where("phone", "==", currentUserPhone), orderBy("createdAt", "desc"));
+    
     activeOrderUnsubscribe = onSnapshot(q, (snapshot) => {
-        let html = ''; let hasActive = false;
+        let activeHtml = ''; let hasActive = false;
+        let historyHtml = '';
+        
         snapshot.forEach(docSnap => {
             const o = docSnap.data(); o.id = docSnap.id;
+            
+            // Если заказ в работе
             if(!['done', 'canceled_client', 'canceled_admin'].includes(o.status)) {
                 hasActive = true;
                 const statusMap = { 'new': 'ИЩЕМ МАСТЕРА ⏳', 'accepted': 'ДЫМ УЖЕ ГОТОВИТСЯ 🔥', 'courier': 'КУРЬЕР МЧИТСЯ 🚀' };
                 let bgStyle = o.status === 'new' ? 'var(--input-bg)' : (o.status === 'accepted' ? 'linear-gradient(45deg, rgba(255,0,85,0.2), transparent)' : 'linear-gradient(45deg, rgba(0,229,255,0.2), transparent)');
 
-                html += `
+                activeHtml += `
                 <div class="app-card glass" style="border-top: 4px solid var(--accent); overflow:hidden;">
                     <p style="font-weight: 800; font-size: 0.8rem; color: var(--accent); margin-bottom: 5px;">ТВОЙ АППАРАТ</p>
                     <h3 style="font-family: var(--font-vandal); font-size: 2.5rem;">${o.tariff}</h3>
@@ -278,11 +386,31 @@ function listenOrders() {
                     </div>
                     ${o.status === 'new' ? `<button class="btn btn-outline" style="border-color:transparent; color:var(--text-muted); padding: 12px; margin-top: 10px;" onclick="cancelOrder('${o.id}')">Отменить заказ</button>` : ''}
                 </div>`;
+            } else {
+                // ИСТОРИЯ ЗАКАЗОВ
+                const timeStr = new Date(o.createdAt).toLocaleDateString('ru-RU', {day:'numeric', month:'short', hour:'2-digit', minute:'2-digit'});
+                const isDone = o.status === 'done';
+                const statusText = isDone ? '✅ ВЫПОЛНЕН' : '❌ ОТМЕНЕН';
+                const color = isDone ? '#10b981' : '#ef4444';
+                
+                historyHtml += `
+                <div class="glass" style="padding: 18px; border-radius: var(--radius-md); margin-bottom: 12px; font-size: 0.9rem; border-left: 4px solid ${color};">
+                    <div style="display:flex; justify-content:space-between; margin-bottom: 8px; align-items: center;">
+                        <span style="font-weight: 900; font-family: var(--font-vandal); font-size: 1.2rem;">${o.tariff}</span>
+                        <span style="font-weight: 900; color: ${color}; font-size: 0.8rem;">${statusText}</span>
+                    </div>
+                    <div style="color: var(--text-muted); font-weight: 600;">${timeStr} • <span style="color: var(--text-main); font-weight: 800;">${o.price} ₸</span></div>
+                </div>`;
             }
         });
-        document.getElementById('home-trackers-container').innerHTML = html;
+
+        // Обновляем главную вкладку
+        document.getElementById('home-trackers-container').innerHTML = activeHtml;
         document.getElementById('home-trackers-container').style.display = hasActive ? 'block' : 'none';
         document.getElementById('home-empty').style.display = hasActive ? 'none' : 'block';
+
+        // Обновляем историю в профиле
+        document.getElementById('profile-history-container').innerHTML = historyHtml || '<p style="text-align:center; color:var(--text-muted); font-weight:600;">Пока пусто. Время дыметь!</p>';
     });
 }
 
