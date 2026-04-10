@@ -94,20 +94,28 @@ async function updateUI() {
         const spent = currentUserData?.totalSpent || 0;
         document.getElementById('profile-spent').innerText = spent.toLocaleString() + ' ₸';
         
-        if (currentUserData?.customDiscount !== undefined) userCurrentDiscount = currentUserData.customDiscount;
-        else userCurrentDiscount = discountTiers.find(t => spent >= t.limit).percent;
+        // ИСПРАВЛЕНИЕ: Точная проверка на наличие ручной скидки
+        let hasCustomDiscount = currentUserData?.customDiscount !== undefined && currentUserData?.customDiscount !== null && currentUserData?.customDiscount !== "";
+        
+        if (hasCustomDiscount) {
+            userCurrentDiscount = currentUserData.customDiscount;
+        } else {
+            userCurrentDiscount = discountTiers.find(t => spent >= t.limit).percent;
+        }
         
         document.getElementById('profile-discount-text').innerText = userCurrentDiscount + '% СКИДКА';
 
         let nextTier = [...discountTiers].reverse().find(t => t.limit > spent);
-        if (nextTier && currentUserData?.customDiscount === undefined) {
+        
+        // ИСПРАВЛЕНИЕ: Прогресс-бар скрывается только если есть реальная ручная скидка
+        if (nextTier && !hasCustomDiscount) {
             let prevLimit = discountTiers.find(t => spent >= t.limit).limit;
             let progress = ((spent - prevLimit) / (nextTier.limit - prevLimit)) * 100;
             document.getElementById('loyalty-bar').style.width = `${progress}%`;
             document.getElementById('loyalty-next').innerText = `До скидки ${nextTier.percent}% осталось ${ (nextTier.limit - spent).toLocaleString() } ₸`;
         } else {
             document.getElementById('loyalty-bar').style.width = `100%`;
-            document.getElementById('loyalty-next').innerText = currentUserData?.customDiscount !== undefined ? 'Персональная скидка VIP' : `Максимальный уровень!`;
+            document.getElementById('loyalty-next').innerText = hasCustomDiscount ? 'Персональная скидка VIP' : `Максимальный уровень!`;
         }
 
         ['solo', 'double', 'team'].forEach(item => { 
@@ -118,8 +126,14 @@ async function updateUI() {
                 const basePrice = parseInt(priceEl.getAttribute('data-base'));
                 const finalPrice = Math.floor(basePrice - (basePrice * (userCurrentDiscount / 100)));
                 priceEl.innerText = finalPrice.toLocaleString() + ' ₸';
-                if(userCurrentDiscount > 0) { oldPrice.style.display = 'block'; badge.style.display = 'inline-block'; badge.innerText = `СКИДКА ${userCurrentDiscount}%`; } 
-                else { oldPrice.style.display = 'none'; badge.style.display = 'none'; }
+                if(userCurrentDiscount > 0) { 
+                    oldPrice.style.display = 'block'; 
+                    badge.style.display = 'inline-block'; 
+                    badge.innerText = `СКИДКА ${userCurrentDiscount}%`; 
+                } else { 
+                    oldPrice.style.display = 'none'; 
+                    badge.style.display = 'none'; 
+                }
             }
         });
         listenOrders();
