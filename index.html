@@ -202,5 +202,21 @@
     </nav>
 
     <script type="module" src="app.js"></script>
+
+    <div id="pwa-prompt" class="pwa-overlay">
+        <div class="pwa-card glass">
+            <div class="pwa-close" id="pwa-close">✖</div>
+            <img src="apple-touch-icon.png" alt="VKASANIE" class="pwa-icon">
+            <h3 style="font-family: var(--font-vandal); font-size: 2rem; margin-bottom: 10px;">VKASANIE APP</h3>
+            <p style="font-weight: 600; font-size: 0.9rem; color: var(--text-muted); margin-bottom: 20px;">Установи нас на главный экран, чтобы заказывать дым в один клик!</p>
+            
+            <div id="pwa-ios-guide" style="display: none; background: var(--input-bg); padding: 15px; border-radius: var(--radius-sm); font-size: 0.85rem; font-weight: 700;">
+                1. Нажми кнопку <svg style="width:16px;height:16px;vertical-align:middle;margin:0 5px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"></path><polyline points="16 6 12 2 8 6"></polyline><line x1="12" y1="2" x2="12" y2="15"></line></svg> (Поделиться) внизу экрана<br><br>
+                2. Выбери <b>«На экран "Домой"»</b> ➕
+            </div>
+
+            <button id="pwa-install-btn" class="btn btn-red" style="display: none;">УСТАНОВИТЬ ПРИЛОЖЕНИЕ</button>
+        </div>
+    </div>
 </body>
 </html>
