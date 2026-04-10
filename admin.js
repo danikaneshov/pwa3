@@ -1,5 +1,5 @@
 import { db } from './firebase-config.js';
-import { collection, onSnapshot, query, orderBy, doc, updateDoc, getDoc, increment } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+import { collection, onSnapshot, query, orderBy, doc, updateDoc, getDoc, setDoc, increment } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
 const ADMIN_HASH = "a665a45920422f9d417e4867efdc4fb8a04a1f3fff1fa07e998e86f7f7a27ae3";
 
@@ -36,11 +36,17 @@ if(sessionStorage.getItem('crm_auth') === 'true') {
 window.switchView = function(viewId) {
     document.getElementById('view-dashboard').style.display = viewId === 'dashboard' ? 'block' : 'none';
     document.getElementById('view-clients').style.display = viewId === 'clients' ? 'block' : 'none';
+    document.getElementById('view-promos').style.display = viewId === 'promos' ? 'block' : 'none';
+    
     document.getElementById('btn-export').style.display = viewId === 'clients' ? 'block' : 'none';
     
     document.getElementById('nav-dash').classList.toggle('active', viewId === 'dashboard');
     document.getElementById('nav-clients').classList.toggle('active', viewId === 'clients');
-    document.getElementById('page-title').innerText = viewId === 'dashboard' ? 'Обзор бизнеса' : 'База клиентов';
+    document.getElementById('nav-promos').classList.toggle('active', viewId === 'promos');
+    
+    if(viewId === 'dashboard') document.getElementById('page-title').innerText = 'Обзор бизнеса';
+    if(viewId === 'clients') document.getElementById('page-title').innerText = 'База клиентов';
+    if(viewId === 'promos') document.getElementById('page-title').innerText = 'Управление промокодами';
 };
 
 setInterval(() => { document.getElementById('clock').innerText = new Date().toLocaleTimeString('ru-RU'); }, 1000);
@@ -98,10 +104,11 @@ function initCRM() {
                 const cleanPhone = o.phone.replace(/\D/g, '');
                 let bowlsInfo = 'Нет данных';
                 if(o.bowls && o.bowls.length > 0) bowlsInfo = o.bowls.map((b, i) => `<b>Чаша ${i+1}:</b> ${b.flavor} (${b.strength}) ${b.ice ? '🧊' : ''}`).join('<br>');
+                let promoText = o.promoCode ? `<span style="background:var(--accent); color:white; padding:2px 6px; border-radius:4px; font-size:0.7rem; font-weight:bold;">ПРОМО: ${o.promoCode}</span>` : '';
 
                 container.innerHTML += `
                     <div class="order-ticket status-${o.status}">
-                        <div class="t-head"><span class="t-tariff">${o.tariff}</span><span class="t-price">${o.price} ₸</span></div>
+                        <div class="t-head"><span class="t-tariff">${o.tariff} ${promoText}</span><span class="t-price">${o.price} ₸</span></div>
                         <div class="t-body">
                             <div class="t-label">КЛИЕНТ</div><b>${o.name || 'Бро'}</b> (${o.phone})<br><br>
                             <div class="t-label">АДРЕС И КОММЕНТАРИЙ</div>${o.comment || 'Нет данных'}<br><br>
@@ -167,8 +174,38 @@ function initCRM() {
                 </tr>`;
         });
     });
+
+    // ПОДГРУЗКА ПРОМОКОДОВ
+    onSnapshot(collection(db, "promocodes"), (snapshot) => {
+        const tbody = document.getElementById('promos-tbody');
+        tbody.innerHTML = '';
+        if(snapshot.empty) return tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;">Промокодов нет</td></tr>';
+
+        snapshot.forEach(docSnap => {
+            const p = docSnap.data();
+            const code = docSnap.id;
+            const statusBadge = p.isActive ? '<span style="color:#10b981; font-weight:900;">АКТИВЕН</span>' : '<span style="color:#ef4444; font-weight:900;">ВЫКЛ</span>';
+            const globalLimitTxt = p.globalLimit > 0 ? p.globalLimit : '∞';
+            const userLimitTxt = p.perUserLimit > 0 ? p.perUserLimit : '∞';
+
+            tbody.innerHTML += `
+                <tr>
+                    <td style="font-weight:900; font-family:'Permanent Marker';">${code}</td>
+                    <td>${p.discount}%</td>
+                    <td>${p.globalUsed || 0} / ${globalLimitTxt}</td>
+                    <td>${userLimitTxt} раз(а)</td>
+                    <td>${statusBadge}</td>
+                    <td>
+                        <button class="btn btn-outline" style="padding: 5px 10px; margin-right:5px;" onclick="openPromoModal('${code}', ${p.discount}, ${p.globalLimit}, ${p.perUserLimit})">⚙️</button>
+                        <button class="btn btn-outline" style="padding: 5px 10px;" onclick="togglePromoStatus('${code}', ${!p.isActive})">${p.isActive ? 'Выкл' : 'Вкл'}</button>
+                    </td>
+                </tr>
+            `;
+        });
+    });
 }
 
+// УПРАВЛЕНИЕ КЛИЕНТАМИ
 window.openEditModal = function(phone, name, spent, customDiscount) {
     editingPhone = phone;
     document.getElementById('edit-name').value = name;
@@ -176,9 +213,7 @@ window.openEditModal = function(phone, name, spent, customDiscount) {
     document.getElementById('edit-discount').value = customDiscount !== "undefined" ? customDiscount : '';
     document.getElementById('edit-modal').style.display = 'flex';
 };
-
 window.closeEditModal = function() { editingPhone = null; document.getElementById('edit-modal').style.display = 'none'; };
-
 window.saveClientEdit = async function() {
     if(!editingPhone) return;
     const newName = document.getElementById('edit-name').value;
@@ -193,6 +228,46 @@ window.saveClientEdit = async function() {
         await updateDoc(doc(db, "users", editingPhone), updateData);
         closeEditModal();
     } catch(e) { alert("Ошибка сохранения!"); }
+};
+
+// УПРАВЛЕНИЕ ПРОМОКОДАМИ
+window.openPromoModal = function(code='', discount='', gLimit=500, uLimit=1) {
+    document.getElementById('promo-code-input').value = code;
+    document.getElementById('promo-code-input').disabled = code !== ''; // Нельзя менять код при редактировании
+    document.getElementById('promo-discount-input').value = discount;
+    document.getElementById('promo-global-limit').value = gLimit;
+    document.getElementById('promo-user-limit').value = uLimit;
+    document.getElementById('promo-modal').style.display = 'flex';
+};
+
+window.closePromoModal = function() {
+    document.getElementById('promo-modal').style.display = 'none';
+};
+
+window.savePromo = async function() {
+    const code = document.getElementById('promo-code-input').value.trim().toUpperCase();
+    const discount = Number(document.getElementById('promo-discount-input').value);
+    const globalLimit = Number(document.getElementById('promo-global-limit').value);
+    const userLimit = Number(document.getElementById('promo-user-limit').value);
+
+    if(!code || !discount) return alert("Укажи код и скидку!");
+
+    try {
+        const promoRef = doc(db, "promocodes", code);
+        const snap = await getDoc(promoRef);
+        
+        if (snap.exists()) {
+            await updateDoc(promoRef, { discount, globalLimit, perUserLimit });
+        } else {
+            await setDoc(promoRef, { discount, globalLimit, perUserLimit, globalUsed: 0, isActive: true });
+        }
+        closePromoModal();
+    } catch(e) { alert("Ошибка сохранения промокода"); }
+};
+
+window.togglePromoStatus = async function(code, newStatus) {
+    try { await updateDoc(doc(db, "promocodes", code), { isActive: newStatus }); } 
+    catch(e) { alert("Ошибка смены статуса"); }
 };
 
 window.exportToCSV = function() {
