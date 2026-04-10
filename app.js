@@ -441,4 +441,65 @@ document.addEventListener('DOMContentLoaded', () => {
     // Кнопка закрытия модалки
     const btnCloseModal = document.getElementById('btn-close-modal');
     if (btnCloseModal) btnCloseModal.addEventListener('click', closeOrderModal);
+
+    // --- ЛОГИКА УСТАНОВКИ PWA (ДОБАВИТЬ НА ЭКРАН) ---
+    const pwaPrompt = document.getElementById('pwa-prompt');
+    const btnClosePwa = document.getElementById('pwa-close');
+    const iosGuide = document.getElementById('pwa-ios-guide');
+    const installBtn = document.getElementById('pwa-install-btn');
+    let deferredPrompt;
+
+    // Проверяем, не открыто ли уже как приложение (standalone) и не закрывал ли юзер плашку ранее
+    const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
+    const pwaDismissed = localStorage.getItem('pwa_dismissed') === 'true';
+
+    // Определяем iOS (iPhone, iPad)
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+
+    // Функция показа плашки
+    const showPwaPrompt = () => {
+        if (isStandalone || pwaDismissed) return;
+        
+        pwaPrompt.style.display = 'flex';
+        setTimeout(() => pwaPrompt.classList.add('show'), 10);
+
+        if (isIOS) {
+            iosGuide.style.display = 'block'; // На iOS показываем текст
+        }
+    };
+
+    // Закрытие плашки
+    if (btnClosePwa) {
+        btnClosePwa.addEventListener('click', () => {
+            pwaPrompt.classList.remove('show');
+            setTimeout(() => pwaPrompt.style.display = 'none', 400);
+            localStorage.setItem('pwa_dismissed', 'true'); // Запоминаем, чтобы не бесить
+        });
+    }
+
+    // Перехватываем системное событие установки (работает на Android/Chrome)
+    window.addEventListener('beforeinstallprompt', (e) => {
+        e.preventDefault();
+        deferredPrompt = e; // Сохраняем событие
+        installBtn.style.display = 'flex'; // Показываем кнопку установки
+    });
+
+    // Обработка клика по кнопке (только Android/PC)
+    if (installBtn) {
+        installBtn.addEventListener('click', async () => {
+            if (deferredPrompt) {
+                deferredPrompt.prompt();
+                const { outcome } = await deferredPrompt.userChoice;
+                if (outcome === 'accepted') {
+                    console.log('Пользователь установил PWA');
+                }
+                deferredPrompt = null;
+                pwaPrompt.classList.remove('show');
+                setTimeout(() => pwaPrompt.style.display = 'none', 400);
+            }
+        });
+    }
+
+    // Запускаем показ плашки через 3 секунды после захода на сайт (чтобы не перекрывать сплеш-скрин)
+    setTimeout(showPwaPrompt, 3000);
 });
