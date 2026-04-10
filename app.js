@@ -1,6 +1,7 @@
 import { db } from './firebase-config.js';
-import { doc, setDoc, getDoc, collection, addDoc, onSnapshot, query, where, updateDoc, increment, orderBy, limit } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+import { doc, setDoc, getDoc, collection, addDoc, onSnapshot, query, where, updateDoc, increment } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
+// --- УТИЛИТЫ ---
 const vibrate = () => { try { if (navigator && navigator.vibrate) navigator.vibrate(50); } catch(e){} };
 
 window.showToast = function(msg) {
@@ -50,8 +51,10 @@ window.toggleRegField = function() {
     }
 };
 
+// --- СОСТОЯНИЕ И ДАННЫЕ ЮЗЕРА ---
 let currentUserPhone = localStorage.getItem('damdym_phone') || null;
-let currentUserData = null; let userCurrentDiscount = 0;
+let currentUserData = null; 
+let userCurrentDiscount = 0;
 let activeOrderUnsubscribe = null; 
 const discountTiers = [{ limit: 1000000, percent: 20 }, { limit: 600000, percent: 15 }, { limit: 400000, percent: 10 }, { limit: 250000, percent: 7 }, { limit: 150000, percent: 5 }, { limit: 75000, percent: 3 }, { limit: 0, percent: 0 }];
 
@@ -103,6 +106,7 @@ async function updateUI() {
         const spent = currentUserData?.totalSpent || 0;
         document.getElementById('profile-spent').innerText = spent.toLocaleString() + ' ₸';
         
+        // Исправленная проверка скидки
         let hasCustomDiscount = currentUserData?.customDiscount !== undefined && currentUserData?.customDiscount !== null && currentUserData?.customDiscount !== "";
         
         if (hasCustomDiscount) {
@@ -125,6 +129,7 @@ async function updateUI() {
             document.getElementById('loyalty-next').innerText = hasCustomDiscount ? 'Персональная скидка VIP' : `Максимальный уровень!`;
         }
 
+        // Обновляем каталог
         ['solo', 'double', 'team'].forEach(item => { 
             const priceEl = document.getElementById(`price-${item}`);
             const badge = document.getElementById(`badge-${item}`);
@@ -160,10 +165,10 @@ async function updateUI() {
     }
 }
 
-// ПЕРЕМЕННЫЕ ЗАКАЗА
+// --- ЛОГИКА ЗАКАЗА И ЧАШ ---
 let currentOrderTariff = "", currentOrderBasePrice = 0, currentOrderFinalPrice = 0;
 let bowlsData = []; let activeBowlIndex = 0;
-let appliedPromoObj = null; // Для хранения примененного промокода {code: '..', discount: 15}
+let appliedPromoObj = null; 
 
 const strengthLabels = { 0:"ВООБЩЕ ЛЕГКО (0)", 1:"ЛЕГКО (1)", 2:"ЛЕГКО (2)", 3:"НИЖЕ СРЕДНЕГО", 4:"КОМФОРТ (4)", 5:"КЛАССИКА (5)", 6:"КЛАССИКА (6)", 7:"ПЛОТНО (7)", 8:"КРЕПКО (8)", 9:"ОЧЕНЬ КРЕПКО", 10:"HARDCORE" };
 
@@ -221,14 +226,12 @@ function renderBowlTabs() {
     if(removeBtn) removeBtn.style.display = bowlsData.length > defaultBowls ? 'block' : 'none';
 }
 
-// ПЕРЕСЧЕТ ЦЕНЫ (учитывает доп. чаши, лояльность и промокод)
 function recalcPrice() {
     let defaultBowls = currentOrderTariff === 'DOUBLE' ? 2 : (currentOrderTariff === 'TEAM' ? 4 : 1);
     let extraBowlsCount = Math.max(0, bowlsData.length - defaultBowls);
     
     let subtotal = currentOrderBasePrice + (extraBowlsCount * 2000);
     
-    // Берем максимальную скидку (промокод или лояльность)
     let bestDiscount = userCurrentDiscount;
     if (appliedPromoObj && appliedPromoObj.discount > userCurrentDiscount) {
         bestDiscount = appliedPromoObj.discount;
@@ -260,7 +263,7 @@ window.removeExtraBowl = function() {
     selectBowl(nextIndex, true); 
 };
 
-// ЛОГИКА ПРОМОКОДОВ
+// --- ПРОМОКОДЫ ---
 window.applyPromo = async function() {
     vibrate();
     const codeInput = document.getElementById('promo-input').value.trim().toUpperCase();
@@ -287,6 +290,7 @@ window.applyPromo = async function() {
     } catch (e) { showToast("Ошибка проверки"); }
 };
 
+// --- ОФОРМЛЕНИЕ ЗАКАЗА ---
 window.openOrderModal = function(tariff, basePrice) {
     vibrate(); 
     if(!currentUserPhone) { 
@@ -297,7 +301,7 @@ window.openOrderModal = function(tariff, basePrice) {
     
     currentOrderTariff = tariff; 
     currentOrderBasePrice = basePrice;
-    appliedPromoObj = null; // Сброс промокода при новом открытии
+    appliedPromoObj = null; 
     document.getElementById('promo-input').value = "";
     document.getElementById('promo-badge').style.display = 'none';
 
@@ -338,10 +342,8 @@ window.submitOrder = async function() {
 
         if (appliedPromoObj) orderData.promoCode = appliedPromoObj.code;
 
-        // Создаем заказ
         await addDoc(collection(db, "orders"), orderData);
 
-        // Обновляем статистику промокода (если был)
         if (appliedPromoObj) {
             await updateDoc(doc(db, "promocodes", appliedPromoObj.code), { globalUsed: increment(1) });
             
@@ -358,17 +360,16 @@ window.submitOrder = async function() {
 
 window.cancelOrder = async function(orderId) { if(confirm("Точно отменить заказ?")) { await updateDoc(doc(db, "orders", orderId), { status: "canceled_client" }); showToast("Заказ отменен"); } };
 
+// --- ПРОСЛУШИВАНИЕ ЗАКАЗОВ (ИСТОРИЯ И АКТИВНЫЕ) ---
 function listenOrders() {
     if(activeOrderUnsubscribe) activeOrderUnsubscribe(); 
     
-    // Убрали orderBy, чтобы Firebase не блокировал запрос
     const q = query(collection(db, "orders"), where("phone", "==", currentUserPhone));
     
     activeOrderUnsubscribe = onSnapshot(q, (snapshot) => {
         let activeHtml = ''; let hasActive = false;
         let historyHtml = '';
         
-        // 1. Собираем все документы в массив
         let ordersArray = [];
         snapshot.forEach(docSnap => {
             let data = docSnap.data();
@@ -376,12 +377,10 @@ function listenOrders() {
             ordersArray.push(data);
         });
 
-        // 2. Сортируем заказы по времени создания (от новых к старым)
+        // Сортируем локально, чтобы обойти ограничения Firebase индексов
         ordersArray.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
         
-        // 3. Распределяем по блокам
         ordersArray.forEach(o => {
-            // Если заказ в работе
             if(!['done', 'canceled_client', 'canceled_admin'].includes(o.status)) {
                 hasActive = true;
                 const statusMap = { 'new': 'ИЩЕМ МАСТЕРА ⏳', 'accepted': 'ДЫМ УЖЕ ГОТОВИТСЯ 🔥', 'courier': 'КУРЬЕР МЧИТСЯ 🚀' };
@@ -397,7 +396,6 @@ function listenOrders() {
                     ${o.status === 'new' ? `<button class="btn btn-outline" style="border-color:transparent; color:var(--text-muted); padding: 12px; margin-top: 10px;" onclick="cancelOrder('${o.id}')">Отменить заказ</button>` : ''}
                 </div>`;
             } else {
-                // ИСТОРИЯ ЗАКАЗОВ
                 const timeStr = new Date(o.createdAt).toLocaleDateString('ru-RU', {day:'numeric', month:'short', hour:'2-digit', minute:'2-digit'});
                 const isDone = o.status === 'done';
                 const statusText = isDone ? '✅ ВЫПОЛНЕН' : '❌ ОТМЕНЕН';
@@ -414,27 +412,33 @@ function listenOrders() {
             }
         });
 
-        // Обновляем главную вкладку
         document.getElementById('home-trackers-container').innerHTML = activeHtml;
         document.getElementById('home-trackers-container').style.display = hasActive ? 'block' : 'none';
         document.getElementById('home-empty').style.display = hasActive ? 'none' : 'block';
 
-        // Обновляем историю в профиле
         document.getElementById('profile-history-container').innerHTML = historyHtml || '<p style="text-align:center; color:var(--text-muted); font-weight:600;">Пока пусто. Время дыметь!</p>';
     });
 }
 
-        // Обновляем главную вкладку
-        document.getElementById('home-trackers-container').innerHTML = activeHtml;
-        document.getElementById('home-trackers-container').style.display = hasActive ? 'block' : 'none';
-        document.getElementById('home-empty').style.display = hasActive ? 'none' : 'block';
-
-        // Обновляем историю в профиле
-        document.getElementById('profile-history-container').innerHTML = historyHtml || '<p style="text-align:center; color:var(--text-muted); font-weight:600;">Пока пусто. Время дыметь!</p>';
-    });
-}
-
+// --- ЗАПУСК ---
 document.addEventListener('DOMContentLoaded', () => { 
     setTimeout(() => { document.getElementById('splash-screen').style.opacity = '0'; setTimeout(() => document.getElementById('splash-screen').style.display = 'none', 600); }, 2000);
     if(currentUserPhone) updateUI(); 
+    
+    // Биндим кнопки Арсенала на новую логику с дата-атрибутами, так как в HTML мы заменили onclick
+    document.querySelectorAll('.btn-order').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            const tariff = e.target.dataset.tariff;
+            const price = parseInt(e.target.dataset.price);
+            openOrderModal(tariff, price);
+        });
+    });
+
+    // Кнопка перехода в арсенал с главной
+    const btnToStore = document.getElementById('btn-to-store');
+    if (btnToStore) btnToStore.addEventListener('click', () => switchTab('tab-store'));
+    
+    // Кнопка закрытия модалки
+    const btnCloseModal = document.getElementById('btn-close-modal');
+    if (btnCloseModal) btnCloseModal.addEventListener('click', closeOrderModal);
 });
