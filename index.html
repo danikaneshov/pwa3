@@ -256,8 +256,8 @@
             <div class="bowl-tabs-container" id="bowl-tabs-container" style="display: none;"></div>
             
             <div style="display: flex; gap: 10px; margin-bottom: 25px;">
-                <button class="btn btn-outline" id="btn-add-bowl" onclick="addExtraBowl()" style="flex: 1; margin: 0; padding: 12px; font-size: 0.8rem; border-style: dashed;">+ ДОП. ЧАША (2000 ₸)</button>
-                <button class="btn btn-outline" id="btn-remove-bowl" onclick="removeExtraBowl()" style="display: none; flex: 1; margin: 0; padding: 12px; font-size: 0.8rem; border-color: var(--accent); color: var(--accent);">❌ УБРАТЬ</button>
+                <button class="btn btn-outline" id="btn-add-bowl" onclick="addExtraBowl()" style="flex: 1; margin: 0; padding: 12px; font-size: 0.8rem; border-style: dashed;">ДОБАВИТЬ ЧАШУ (2000 ₸)</button>
+                <button class="btn btn-outline" id="btn-remove-bowl" onclick="removeExtraBowl()" style="display: none; flex: 1; margin: 0; padding: 12px; font-size: 0.8rem; border-color: var(--accent); color: var(--accent);">УБРАТЬ ЧАШУ</button>
             </div>
 
             <label class="modal-label" id="lbl-strength">КРЕПОСТЬ</label>
@@ -364,10 +364,9 @@
 
         let currentUserPhone = localStorage.getItem('damdym_phone') || null;
         let currentUserData = null; let userCurrentDiscount = 0;
-        let activeOrderUnsubscribe = null; // ИСПРАВЛЕНО: Переменная для отписки
+        let activeOrderUnsubscribe = null; 
         const discountTiers = [{ limit: 1000000, percent: 20 }, { limit: 600000, percent: 15 }, { limit: 400000, percent: 10 }, { limit: 250000, percent: 7 }, { limit: 150000, percent: 5 }, { limit: 75000, percent: 3 }, { limit: 0, percent: 0 }];
 
-        // ИСПРАВЛЕНО: Логика входа и валидация
         window.login = async function() {
             vibrate();
             const name = document.getElementById('reg-name').value.trim();
@@ -398,7 +397,7 @@
 
         window.logout = function() {
             currentUserPhone = null; currentUserData = null; userCurrentDiscount = 0;
-            if(activeOrderUnsubscribe) { activeOrderUnsubscribe(); activeOrderUnsubscribe = null; } // ИСПРАВЛЕНО: Отписка
+            if(activeOrderUnsubscribe) { activeOrderUnsubscribe(); activeOrderUnsubscribe = null; } 
             localStorage.removeItem('damdym_phone');
             updateUI(); switchTab('tab-profile'); showToast("Вы вышли");
         };
@@ -432,7 +431,7 @@
                     document.getElementById('loyalty-next').innerText = currentUserData?.customDiscount !== undefined ? 'Персональная скидка VIP' : `Максимальный уровень!`;
                 }
 
-                ['solo', 'double', 'team'].forEach(item => { // ИСПРАВЛЕНО: Имя массива (team)
+                ['solo', 'double', 'team'].forEach(item => { 
                     const priceEl = document.getElementById(`price-${item}`);
                     const badge = document.getElementById(`badge-${item}`);
                     const oldPrice = document.getElementById(`old-price-${item}`);
@@ -450,7 +449,7 @@
                 document.getElementById('view-profile').style.display = 'none';
                 document.getElementById('home-empty').style.display = 'block';
                 document.getElementById('home-trackers-container').style.display = 'none';
-                ['solo', 'double', 'team'].forEach(item => { // ИСПРАВЛЕНО: Имя массива
+                ['solo', 'double', 'team'].forEach(item => { 
                     const priceEl = document.getElementById(`price-${item}`);
                     if(priceEl) {
                         priceEl.innerText = parseInt(priceEl.getAttribute('data-base')).toLocaleString() + ' ₸';
@@ -490,8 +489,12 @@
 
         window.setIce = function(val) { vibrate(); bowlsData[activeBowlIndex].ice = val; document.getElementById('ice-yes').classList.toggle('active', val); document.getElementById('ice-no').classList.toggle('active', !val); };
 
-        window.selectBowl = function(index) {
-            vibrate(); saveCurrentBowl(); activeBowlIndex = index; renderBowlTabs();
+        window.selectBowl = function(index, skipSave = false) {
+            vibrate(); 
+            if (!skipSave) saveCurrentBowl(); 
+            
+            activeBowlIndex = index; renderBowlTabs();
+            
             document.getElementById('lbl-strength').innerText = `КРЕПОСТЬ (ЧАША ${index+1})`;
             const b = bowlsData[index];
             document.getElementById('strength-slider').value = b.strength; updateSliderColor(b.strength); document.getElementById('strength-display').innerText = strengthLabels[b.strength];
@@ -499,7 +502,6 @@
             document.getElementById('ice-yes').classList.toggle('active', b.ice); document.getElementById('ice-no').classList.toggle('active', !b.ice); 
         };
 
-        // ИСПРАВЛЕНО: Логика отрисовки вкладок и кнопки удаления
         function renderBowlTabs() {
             const container = document.getElementById('bowl-tabs-container');
             const removeBtn = document.getElementById('btn-remove-bowl');
@@ -518,9 +520,15 @@
             }
         }
 
-        window.addExtraBowl = function() { vibrate(); saveCurrentBowl(); bowlsData.push({ strength: 5, flavor: '', ice: true }); currentOrderFinalPrice += 2000; document.getElementById('modal-final-price').innerText = currentOrderFinalPrice.toLocaleString() + ' ₸'; selectBowl(bowlsData.length - 1); };
+        window.addExtraBowl = function() { 
+            vibrate(); 
+            saveCurrentBowl(); 
+            bowlsData.push({ strength: 5, flavor: '', ice: true }); 
+            currentOrderFinalPrice += 2000; 
+            document.getElementById('modal-final-price').innerText = currentOrderFinalPrice.toLocaleString() + ' ₸'; 
+            selectBowl(bowlsData.length - 1); 
+        };
 
-        // ИСПРАВЛЕНО: Функция удаления чаши
         window.removeExtraBowl = function() { 
             vibrate(); 
             let defaultBowls = currentOrderTariff === 'DOUBLE' ? 2 : (currentOrderTariff === 'TEAM' ? 4 : 1);
@@ -530,8 +538,8 @@
             document.getElementById('modal-final-price').innerText = currentOrderFinalPrice.toLocaleString() + ' ₸'; 
             
             bowlsData.splice(activeBowlIndex, 1);
-            let nextIndex = activeBowlIndex > 0 ? activeBowlIndex - 1 : 0;
-            selectBowl(nextIndex);
+            let nextIndex = activeBowlIndex >= bowlsData.length ? bowlsData.length - 1 : activeBowlIndex;
+            selectBowl(nextIndex, true); 
         };
 
         window.openOrderModal = function(tariff, basePrice) {
@@ -571,7 +579,7 @@
         window.cancelOrder = async function(orderId) { if(confirm("Точно отменить заказ?")) { await updateDoc(doc(db, "orders", orderId), { status: "canceled_client" }); showToast("Заказ отменен"); } };
 
         function listenOrders() {
-            if(activeOrderUnsubscribe) activeOrderUnsubscribe(); // ИСПРАВЛЕНО: Очистка старого слушателя
+            if(activeOrderUnsubscribe) activeOrderUnsubscribe(); 
             
             const q = query(collection(db, "orders"), where("phone", "==", currentUserPhone));
             activeOrderUnsubscribe = onSnapshot(q, (snapshot) => {
