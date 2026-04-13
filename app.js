@@ -342,20 +342,49 @@ window.submitOrder = async function() {
 
         if (appliedPromoObj) orderData.promoCode = appliedPromoObj.code;
 
+        // 1. Сохраняем в Firebase
         await addDoc(collection(db, "orders"), orderData);
 
         if (appliedPromoObj) {
             await updateDoc(doc(db, "promocodes", appliedPromoObj.code), { globalUsed: increment(1) });
-            
             const userUsedMap = currentUserData?.usedPromos || {};
             userUsedMap[appliedPromoObj.code] = (userUsedMap[appliedPromoObj.code] || 0) + 1;
             await updateDoc(doc(db, "users", currentUserPhone), { usedPromos: userUsedMap });
         }
         
+        // 2. ОТПРАВЛЯЕМ УВЕДОМЛЕНИЕ В TELEGRAM
+        const tgToken = "8616525461:AAGTwex70ZkIQMwbBikG9msSG6dY0ErEDKg";
+        const tgChatId = "7711813441";
+        
+        let bowlsText = bowlsArrayForDb.map((b, i) => `💨 Чаша ${i+1}: ${b.flavor} (${b.strength}) ${b.ice ? '🧊' : '🔥'}`).join('\n');
+        let promoText = appliedPromoObj ? `\n🎟 Промокод: ${appliedPromoObj.code}` : "";
+
+        let textMessage = `🔥 <b>НОВЫЙ ЗАКАЗ vKasanie!</b> 🔥\n\n` +
+                          `👤 <b>Клиент:</b> ${orderData.name} (${orderData.phone})\n` +
+                          `📦 <b>Тариф:</b> ${orderData.tariff}\n` +
+                          `💰 <b>Сумма:</b> ${orderData.price} ₸${promoText}\n\n` +
+                          `📍 <b>Адрес:</b> ${orderData.comment}\n\n` +
+                          `<b>Забивки:</b>\n${bowlsText}`;
+
+        // Делаем фоновый POST-запрос к API Телеграма
+        fetch(`https://api.telegram.org/bot${tgToken}/sendMessage`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                chat_id: tgChatId,
+                text: textMessage,
+                parse_mode: 'HTML'
+            })
+        }).catch(e => console.error("Ошибка отправки в ТГ:", e)); // Ошибку ТГ просто пишем в консоль, чтобы не стопить прилу клиенту
+        // ------------------------------------------
+
         confetti({ particleCount: 150, spread: 80, origin: { y: 0.6 }, colors: ['#ff0055', '#00e5ff', '#ffffff'] });
         showToast("🎉 ЗАКАЗ УЛЕТЕЛ!"); closeOrderModal(); switchTab('tab-home');
-    } catch(e) { showToast("Ошибка сети"); }
-    finally { submitBtn.innerText = "ОФОРМИТЬ"; submitBtn.disabled = false; }
+    } catch(e) { 
+        showToast("Ошибка сети"); 
+    } finally { 
+        submitBtn.innerText = "ОФОРМИТЬ"; submitBtn.disabled = false; 
+    }
 };
 
 window.cancelOrder = async function(orderId) { if(confirm("Точно отменить заказ?")) { await updateDoc(doc(db, "orders", orderId), { status: "canceled_client" }); showToast("Заказ отменен"); } };
