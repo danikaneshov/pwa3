@@ -1,5 +1,6 @@
-import { db } from './firebase-config.js';
+import { app, db } from './firebase-config.js';
 import { collection, onSnapshot, query, orderBy, doc, updateDoc, getDoc, setDoc, increment } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+import { getMessaging, getToken, onMessage } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-messaging.js";
 
 const ADMIN_HASH = "a665a45920422f9d417e4867efdc4fb8a04a1f3fff1fa07e998e86f7f7a27ae3";
 
@@ -54,6 +55,46 @@ setInterval(() => { document.getElementById('clock').innerText = new Date().toLo
 let currentClientsData = [];
 let editingPhone = null;
 
+const messaging = getMessaging(app);
+const VAPID_KEY = "BHOb-1h9ytw-5ix5yyL7iTGp_GYIqoMudXAz7eDQlsYwItCMPO_64eqW6p-LwkdESY2mIm1ubCph9gTIGhE-T9Y";
+
+// Запрос прав и получение токена
+window.requestPushPermission = async function() {
+    try {
+        const permission = await Notification.requestPermission();
+        if (permission === 'granted') {
+            const token = await getToken(messaging, { vapidKey: VAPID_KEY });
+            if (token) {
+                console.log("FCM Token получен:", token);
+                // Сохраняем токен админа в базу
+                await setDoc(doc(db, "admin_settings", "push_token"), { token: token, updatedAt: Date.now() });
+                alert("Push-уведомления успешно включены!");
+                document.getElementById('btn-enable-push').style.display = 'none';
+            } else {
+                console.warn("Не удалось получить токен.");
+            }
+        } else {
+            alert("Разрешение на уведомления не получено.");
+        }
+    } catch (error) {
+        console.error("Ошибка при запросе push-уведомлений:", error);
+    }
+};
+
+// Проверяем, дано ли разрешение ранее, чтобы скрыть кнопку
+if (Notification.permission === 'granted') {
+    const btn = document.getElementById('btn-enable-push');
+    if(btn) btn.style.display = 'none';
+}
+
+// Обработка сообщений, когда вкладка админки активна
+onMessage(messaging, (payload) => {
+    new Notification(payload.notification.title, {
+        body: payload.notification.body,
+        icon: '/apple-touch-icon.png'
+    });
+});
+
 function initCRM() {
     Chart.defaults.font.family = 'Montserrat';
     const ctxLine = document.getElementById('chartLine').getContext('2d');
@@ -80,8 +121,16 @@ function initCRM() {
         let tOrders = 0; let tRev = 0; let tActive = 0; let newOrders = 0;
         let salesDays = {}; let tariffCounts = { 'SOLO':0, 'DOUBLE':0, 'COMPANY':0, 'TEAM':0 };
         
-        if(snapshot.docs.length > lastOrderCount && lastOrderCount !== 0 && audioUnlocked) {
-            document.getElementById('alert-sound').play().catch(()=>{});
+        if(snapshot.docs.length > lastOrderCount && lastOrderCount !== 0) {
+            if (audioUnlocked) document.getElementById('alert-sound').play().catch(()=>{});
+            
+            // Вызов нативного системного уведомления
+            if (Notification.permission === "granted") {
+                new Notification("🔥 Новый заказ!", {
+                    body: "В CRM поступил новый заказ. Открой вкладку для проверки.",
+                    icon: "/apple-touch-icon.png"
+                });
+            }
         }
         lastOrderCount = snapshot.docs.length;
 
